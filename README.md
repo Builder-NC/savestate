@@ -23,7 +23,6 @@ SaveState is an encrypted backup and restore system for AI agent state. Think **
 npx savestate init                     # Set up encryption + storage
 npx savestate snapshot                 # Capture current state
 npx savestate restore latest           # Restore from last snapshot
-npx savestate search "cocktail recs"   # Search across all snapshots
 npx savestate diff v3 v5               # What changed between snapshots
 ```
 
@@ -32,7 +31,6 @@ npx savestate diff v3 v5               # What changed between snapshots
 - 🔐 **Encrypted at rest** — AES-256-GCM with scrypt key derivation. Your keys, your data.
 - 📦 **Open archive format** — The SaveState Archive Format (SAF) is an open spec. No vendor lock-in.
 - 🔌 **Platform adapters** — Works with ChatGPT, Claude, Gemini, Clawdbot, OpenAI Assistants, and more.
-- 🔍 **Searchable** — Query across all snapshots without restoring. Find anything.
 - 📊 **Incremental** — Like git — only captures what changed. Full history, tiny storage.
 - 💾 **Flexible storage** — Local filesystem, S3, R2, Backblaze, Dropbox, iCloud — you choose.
 - ⏰ **Scheduled backups** — Set it and forget it. Auto-snapshot on your schedule.
@@ -53,9 +51,6 @@ savestate snapshot
 
 # List all snapshots
 savestate list
-
-# Search across snapshots
-savestate search "that recipe from last month"
 
 # Restore from a snapshot
 savestate restore latest
@@ -79,13 +74,13 @@ Community adapters welcome! See [Contributing](#contributing).
 ```
 ┌─────────────────────────────────────────────────┐
 │                  SaveState CLI                    │
-│    init · snapshot · restore · search · diff      │
+│    init · snapshot · restore · list · diff         │
 ├─────────────────────────────────────────────────┤
 │              Adapter Layer                        │
 │   clawdbot · chatgpt · claude · openai · custom   │
 ├─────────────────────────────────────────────────┤
 │              Core Engine                          │
-│   snapshot · restore · search · diff · format     │
+│   snapshot · restore · diff · format              │
 ├─────────────────────────────────────────────────┤
 │              Encryption Layer                     │
 │   AES-256-GCM · scrypt KDF · integrity check     │
@@ -147,9 +142,6 @@ savestate restore [snapshot-id]       Restore from a snapshot (default: latest)
 savestate list                        List all snapshots
   --json                             Output as JSON
   --limit <n>                        Max snapshots to show
-savestate search <query>              Search across snapshots
-  --type <types>                     Filter by content type
-  --limit <n>                        Max results
 savestate diff <a> <b>                Compare two snapshots
 savestate config                      View/edit configuration
   --set <key=value>                  Set a config value
@@ -225,13 +217,11 @@ src/
 ├── config.ts           # Configuration management
 ├── snapshot.ts         # Snapshot creation
 ├── restore.ts          # Snapshot restoration
-├── search.ts           # Cross-snapshot search
 ├── commands/           # CLI command handlers
 │   ├── init.ts
 │   ├── snapshot.ts
 │   ├── restore.ts
 │   ├── list.ts
-│   ├── search.ts
 │   ├── diff.ts
 │   ├── config.ts
 │   └── adapters.ts

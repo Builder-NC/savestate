@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Outer ring - bright blue -->
+  <circle cx="256" cy="256" r="232" stroke="#3DA1F2" stroke-width="22" fill="none"/>
+  <!-- Second ring - slightly deeper blue -->
+  <circle cx="256" cy="256" r="195" stroke="#2B8AE0" stroke-width="18" fill="none"/>
+
+  <!-- Circular arrow path - dark navy/purple -->
+  <!-- Sweeps clockwise ~300 degrees, gap at top-right where arrowhead points down -->
+  <path d="M 290 118
+           A 148 148 0 1 1 190 140"
+        stroke="#1C1250" stroke-width="24" fill="none" stroke-linecap="round"/>
+
+  <!-- Arrowhead at top - pointing downward, blue gradient color -->
+  <path d="M 260 82 L 290 118 L 260 112 Z" fill="#3DA1F2"/>
+  <path d="M 258 80 L 296 122 L 260 108 Z" fill="#2B8AE0"/>
+
+  <!-- Data wave / equalizer lines - left side -->
+  <g opacity="0.35" stroke="#9AC4EC" stroke-width="3.5" stroke-linecap="round">
+    <!-- Left waves -->
+    <line x1="207" y1="218" x2="178" y2="218"/>
+    <line x1="207" y1="230" x2="170" y2="230"/>
+    <line x1="207" y1="242" x2="162" y2="242"/>
+    <line x1="207" y1="256" x2="155" y2="256"/>
+    <line x1="207" y1="270" x2="162" y2="270"/>
+    <line x1="207" y1="282" x2="170" y2="282"/>
+    <line x1="207" y1="294" x2="178" y2="294"/>
+    <!-- Right waves -->
+    <line x1="305" y1="218" x2="334" y2="218"/>
+    <line x1="305" y1="230" x2="342" y2="230"/>
+    <line x1="305" y1="242" x2="350" y2="242"/>
+    <line x1="305" y1="256" x2="357" y2="256"/>
+    <line x1="305" y1="270" x2="350" y2="270"/>
+    <line x1="305" y1="282" x2="342" y2="282"/>
+    <line x1="305" y1="294" x2="334" y2="294"/>
+  </g>
+
+  <!-- Pause symbol - two vertical bars, dark navy -->
+  <rect x="224" y="208" width="26" height="96" rx="5" fill="#1C1250"/>
+  <rect x="262" y="208" width="26" height="96" rx="5" fill="#1C1250"/>
+</svg>

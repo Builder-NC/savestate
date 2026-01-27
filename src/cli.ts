@@ -10,7 +10,6 @@
  *   savestate snapshot                Capture current state
  *   savestate restore [snapshot-id]   Restore from a snapshot
  *   savestate list                    List all snapshots
- *   savestate search <query>          Search across snapshots
  *   savestate diff <a> <b>            Compare two snapshots
  *   savestate config                  View/edit configuration
  *   savestate adapters                List available adapters
@@ -22,7 +21,6 @@ import {
   snapshotCommand,
   restoreCommand,
   listCommand,
-  searchCommand,
   diffCommand,
   configCommand,
   adaptersCommand,
@@ -72,16 +70,6 @@ program
   .option('--json', 'Output as JSON')
   .option('--limit <n>', 'Maximum number of snapshots to show')
   .action(listCommand);
-
-// ─── savestate search ────────────────────────────────────────
-
-program
-  .command('search <query>')
-  .description('Search across all snapshots')
-  .option('--type <types>', 'Filter by type (memory,conversation,identity,knowledge)')
-  .option('--limit <n>', 'Maximum number of results')
-  .option('--snapshot <id>', 'Search within a specific snapshot')
-  .action(searchCommand);
 
 // ─── savestate diff ──────────────────────────────────────────
 
