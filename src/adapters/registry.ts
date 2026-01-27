@@ -5,10 +5,16 @@
  * Built-in adapters are registered automatically.
  * External adapters can be installed as npm packages
  * following the naming convention @savestate/adapter-*.
+ *
+ * Detection order: Clawdbot > Claude Code > OpenAI Assistants
+ * More specific adapters are preferred over generic ones.
+ * If both Clawdbot and Claude Code markers exist, Clawdbot wins.
  */
 
 import type { Adapter } from '../types.js';
 import { ClawdbotAdapter } from './clawdbot.js';
+import { ClaudeCodeAdapter } from './claude-code.js';
+import { OpenAIAssistantsAdapter } from './openai-assistants.js';
 
 /** Registry of all known adapters */
 const adapters = new Map<string, () => Adapter>();
@@ -37,7 +43,8 @@ export function getAdapter(id: string): Adapter | null {
 
 /**
  * Auto-detect which adapter to use for the current environment.
- * Tries each adapter's detect() method and returns the first match.
+ * Tries each adapter's detect() method in priority order.
+ * Clawdbot is checked first (most specific for Moltbot workspaces).
  */
 export async function detectAdapter(): Promise<Adapter | null> {
   for (const [, factory] of adapters) {
@@ -76,10 +83,15 @@ export async function getAdapterInfo(): Promise<
 }
 
 // ─── Register built-in adapters ─────────────────────────────
+// Order matters! First match wins in detectAdapter().
+// Clawdbot is more specific than Claude Code (it has SOUL.md, memory/, etc.)
+// so it should be checked first.
 
 register('clawdbot', () => new ClawdbotAdapter());
+register('claude-code', () => new ClaudeCodeAdapter());
+register('openai-assistants', () => new OpenAIAssistantsAdapter());
 
 // Future adapters:
 // register('chatgpt', () => new ChatGPTAdapter());
-// register('claude', () => new ClaudeAdapter());
-// register('openai-assistants', () => new OpenAIAssistantsAdapter());
+// register('claude-web', () => new ClaudeWebAdapter());
+// register('gemini', () => new GeminiAdapter());

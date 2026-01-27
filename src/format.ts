@@ -38,6 +38,21 @@ export function packSnapshot(snapshot: Snapshot): Map<string, Buffer> {
   if (snapshot.identity.tools?.length) {
     files.set('identity/tools.json', Buffer.from(JSON.stringify(snapshot.identity.tools, null, 2)));
   }
+  if (snapshot.identity.skills?.length) {
+    files.set('identity/skills.json', Buffer.from(JSON.stringify(snapshot.identity.skills, null, 2)));
+  }
+  if (snapshot.identity.scripts?.length) {
+    files.set('identity/scripts.json', Buffer.from(JSON.stringify(snapshot.identity.scripts, null, 2)));
+  }
+  if (snapshot.identity.extensions?.length) {
+    files.set('identity/extensions.json', Buffer.from(JSON.stringify(snapshot.identity.extensions, null, 2)));
+  }
+  if (snapshot.identity.fileManifest?.length) {
+    files.set('identity/file-manifest.json', Buffer.from(JSON.stringify(snapshot.identity.fileManifest, null, 2)));
+  }
+  if (snapshot.identity.projectMeta && Object.keys(snapshot.identity.projectMeta).length > 0) {
+    files.set('identity/project-meta.json', Buffer.from(JSON.stringify(snapshot.identity.projectMeta, null, 2)));
+  }
 
   // memory/
   files.set('memory/core.json', Buffer.from(JSON.stringify(snapshot.memory.core, null, 2)));
@@ -79,6 +94,21 @@ export function unpackSnapshot(files: Map<string, Buffer>): Snapshot {
       : undefined,
     tools: files.has('identity/tools.json')
       ? getJson<Snapshot['identity']['tools']>('identity/tools.json')
+      : undefined,
+    skills: files.has('identity/skills.json')
+      ? getJson<Snapshot['identity']['skills']>('identity/skills.json')
+      : undefined,
+    scripts: files.has('identity/scripts.json')
+      ? getJson<Snapshot['identity']['scripts']>('identity/scripts.json')
+      : undefined,
+    extensions: files.has('identity/extensions.json')
+      ? getJson<Snapshot['identity']['extensions']>('identity/extensions.json')
+      : undefined,
+    fileManifest: files.has('identity/file-manifest.json')
+      ? getJson<Snapshot['identity']['fileManifest']>('identity/file-manifest.json')
+      : undefined,
+    projectMeta: files.has('identity/project-meta.json')
+      ? getJson<Record<string, string>>('identity/project-meta.json')
       : undefined,
   };
 

@@ -39,6 +39,16 @@ export interface Identity {
   config?: Record<string, unknown>;
   /** Tool/plugin/skill configurations */
   tools?: ToolConfig[];
+  /** Skills with their configs and scripts */
+  skills?: SkillEntry[];
+  /** Custom user scripts */
+  scripts?: ScriptEntry[];
+  /** Extension configurations (not code/node_modules) */
+  extensions?: ExtensionEntry[];
+  /** Project file manifest (paths + sizes, no content) */
+  fileManifest?: FileManifestEntry[];
+  /** Project metadata files (package.json, pyproject.toml, etc.) */
+  projectMeta?: Record<string, string>;
 }
 
 export interface ToolConfig {
@@ -46,6 +56,40 @@ export interface ToolConfig {
   type: string;
   config: Record<string, unknown>;
   enabled: boolean;
+}
+
+export interface SkillEntry {
+  /** Skill directory name */
+  name: string;
+  /** SKILL.md content */
+  skillMd?: string;
+  /** Files in the skill (relative path → content) */
+  files: Record<string, string>;
+}
+
+export interface ScriptEntry {
+  /** Relative path from workspace root */
+  path: string;
+  /** Script content */
+  content: string;
+  /** Whether this is a cron wrapper */
+  isCronWrapper: boolean;
+}
+
+export interface ExtensionEntry {
+  /** Extension directory name */
+  name: string;
+  /** Config files in the extension (relative path → content) */
+  configs: Record<string, string>;
+}
+
+export interface FileManifestEntry {
+  /** Relative file path */
+  path: string;
+  /** File size in bytes */
+  size: number;
+  /** Last modified ISO timestamp */
+  modified: string;
 }
 
 // ─── Memory ──────────────────────────────────────────────────

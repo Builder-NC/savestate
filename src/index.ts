@@ -21,6 +21,10 @@ export type {
   RestoreHints,
   RestoreStep,
   ToolConfig,
+  SkillEntry,
+  ScriptEntry,
+  ExtensionEntry,
+  FileManifestEntry,
   EmbeddingData,
   Adapter,
   StorageBackend,
@@ -71,4 +75,12 @@ export { searchSnapshots, scoreMatch } from './search.js';
 export { LocalStorageBackend } from './storage/index.js';
 
 // Adapters
-export { ClawdbotAdapter, listAdapters, getAdapter, detectAdapter, getAdapterInfo } from './adapters/index.js';
+export {
+  ClawdbotAdapter,
+  ClaudeCodeAdapter,
+  OpenAIAssistantsAdapter,
+  listAdapters,
+  getAdapter,
+  detectAdapter,
+  getAdapterInfo,
+} from './adapters/index.js';
