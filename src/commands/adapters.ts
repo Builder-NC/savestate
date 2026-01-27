@@ -34,7 +34,7 @@ export async function adaptersCommand(): Promise<void> {
     console.log(chalk.dim('  Built-in adapters:'));
     console.log(chalk.dim('    • clawdbot          — Clawdbot/Moltbot workspaces (SOUL.md, memory/, skills/, etc.)'));
     console.log(chalk.dim('    • claude-code       — Claude Code projects (CLAUDE.md, .claude/, settings)'));
-    console.log(chalk.dim('    • openai-assistants  — OpenAI Assistants API (stub — coming soon)'));
+    console.log(chalk.dim('    • openai-assistants  — OpenAI Assistants API (config, files, vector stores, threads)'));
     console.log();
     console.log(chalk.dim('  Coming soon:'));
     console.log(chalk.dim('    • chatgpt      — ChatGPT conversations & memories'));
