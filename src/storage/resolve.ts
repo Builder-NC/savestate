@@ -6,21 +6,39 @@
 
 import type { SaveStateConfig, StorageBackend } from '../types.js';
 import { LocalStorageBackend } from './local.js';
+import { S3Storage } from './s3.js';
+import type { S3StorageOptions } from './s3.js';
 
 /**
  * Create a storage backend from the config's storage section.
  */
 export function resolveStorage(config: SaveStateConfig): StorageBackend {
-  switch (config.storage.type) {
+  const { type, options } = config.storage;
+
+  switch (type) {
     case 'local':
       return new LocalStorageBackend({
-        path: config.storage.options.path as string | undefined,
+        path: options.path as string | undefined,
       });
+
+    case 's3':
+    case 'r2':
+    case 'b2':
+      return new S3Storage({
+        bucket: options.bucket as string,
+        endpoint: options.endpoint as string,
+        region: options.region as string | undefined,
+        accessKeyId: options.accessKeyId as string | undefined,
+        secretAccessKey: options.secretAccessKey as string | undefined,
+        prefix: options.prefix as string | undefined,
+        timeoutMs: options.timeoutMs as number | undefined,
+        maxRetries: options.maxRetries as number | undefined,
+      } satisfies S3StorageOptions);
 
     default:
       throw new Error(
-        `Unknown storage backend: ${config.storage.type}. ` +
-        `Supported: local. S3/R2/B2 coming soon.`,
+        `Unknown storage backend: ${type}. ` +
+        `Supported: local, s3, r2, b2.`,
       );
   }
 }

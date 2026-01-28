@@ -3,11 +3,40 @@
  */
 
 import chalk from 'chalk';
-import { isInitialized, loadConfig, localConfigPath } from '../config.js';
+import { isInitialized, loadConfig, saveConfig, localConfigPath } from '../config.js';
+import type { SaveStateConfig } from '../types.js';
 
 interface ConfigOptions {
   set?: string;
   json?: boolean;
+}
+
+/**
+ * Set a deeply nested property on an object using dot-notation path.
+ * Auto-creates intermediate objects as needed.
+ * Coerces 'true'/'false' to boolean and numeric strings to numbers.
+ */
+function setNestedValue(obj: Record<string, unknown>, path: string, rawValue: string): void {
+  const keys = path.split('.');
+  let current: Record<string, unknown> = obj;
+
+  for (let i = 0; i < keys.length - 1; i++) {
+    const key = keys[i];
+    if (typeof current[key] !== 'object' || current[key] === null) {
+      current[key] = {};
+    }
+    current = current[key] as Record<string, unknown>;
+  }
+
+  const finalKey = keys[keys.length - 1];
+
+  // Coerce value types
+  let value: unknown = rawValue;
+  if (rawValue === 'true') value = true;
+  else if (rawValue === 'false') value = false;
+  else if (/^\d+$/.test(rawValue)) value = parseInt(rawValue, 10);
+
+  current[finalKey] = value;
 }
 
 export async function configCommand(options: ConfigOptions): Promise<void> {
@@ -22,14 +51,22 @@ export async function configCommand(options: ConfigOptions): Promise<void> {
   const configPath = localConfigPath();
 
   if (options.set) {
-    // TODO: Parse key=value and update config
-    console.log(chalk.yellow(`  Setting config values is coming soon.`));
-    console.log(chalk.dim(`  For now, edit directly: ${configPath}`));
-    console.log();
-    console.log(chalk.dim('  Usage examples:'));
-    console.log(chalk.dim('    savestate config --set storage.type=s3'));
-    console.log(chalk.dim('    savestate config --set defaultAdapter=chatgpt'));
-    console.log(chalk.dim('    savestate config --set retention.maxSnapshots=50'));
+    const eqIndex = options.set.indexOf('=');
+    if (eqIndex === -1) {
+      console.log(chalk.red('  ✗ Invalid format. Use: --set key=value'));
+      console.log(chalk.dim('    Example: savestate config --set storage.type=s3'));
+      console.log();
+      process.exit(1);
+    }
+
+    const key = options.set.slice(0, eqIndex);
+    const value = options.set.slice(eqIndex + 1);
+
+    setNestedValue(config as unknown as Record<string, unknown>, key, value);
+    await saveConfig(config);
+
+    console.log(chalk.green(`  ✓ Set ${chalk.bold(key)} = ${chalk.bold(value)}`));
+    console.log(chalk.dim(`    ${configPath}`));
     console.log();
     return;
   }
