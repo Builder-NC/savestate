@@ -265,13 +265,21 @@ Nobody is doing this comprehensively. The closest analogy is 1Password for passw
 - [x] Deploy webhook + API to Vercel — LIVE at savestate.dev/api/* (Jan 27 evening)
   - `GET /api/account` — validates API key, returns tier/features/storage ✅
   - `POST /api/webhook` — Stripe subscription lifecycle events ✅
+  - `GET/PUT/DELETE /api/storage` — cloud storage proxy for Pro/Team ✅
   - Stripe env vars (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET) configured
+  - R2 env vars (R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT, R2_BUCKET) configured
+  - SMTP env var (SMTP_PASSWORD) configured for PurelyMail
   - Neon DATABASE_URL auto-injected via Vercel integration
   - Stripe API version: 2025-12-15.clover
-- [ ] Configure Stripe webhook endpoint URL in Stripe Dashboard (savestate.dev/api/webhook)
-- [ ] End-to-end test: Stripe checkout → webhook → account provisioned → API key works
-- [ ] Welcome email with API key (post-checkout)
-- [ ] Cloud storage proxy (R2 bucket proxied through API for Pro/Team)
+- [x] Configure Stripe webhook endpoint URL in Stripe Dashboard (savestate.dev/api/webhook)
+  - Events: checkout.session.completed, subscription updated/deleted, invoice.payment_failed
+- [x] Welcome email with API key (post-checkout) — PurelyMail SMTP, dark-themed HTML template
+  - DNS: MX, SPF, DKIM (x3), DMARC on savestate.dev via Vercel DNS
+  - Inboxes: noreply@savestate.dev, hello@savestate.dev (creds in 1Password)
+  - Zero-dep raw SMTP over TLS (api/lib/email.ts)
+- [x] Cloud storage proxy (R2 bucket proxied through API for Pro/Team)
+  - PUT/GET/DELETE/LIST, storage limit enforcement, AWS Sig V4 signing
+- [ ] End-to-end test: Stripe checkout → webhook → account → email → CLI login
 - [ ] End-to-end test suite (snapshot → restore → verify across adapters)
 - [ ] Encrypted search index (client-side, encrypted separately)
 - [ ] Scheduled auto-backups (cron/daemon mode)
