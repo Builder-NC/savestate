@@ -181,9 +181,14 @@ curl -fsSL https://savestate.dev/install.sh | sh
 - **CLI**: Node.js (TypeScript) — widest ecosystem reach
 - **Encryption**: libsodium (via sodium-native) — proven, audited
 - **Storage**: Abstract backend interface (local, S3-compatible, filesystem)
+- **Cloud Storage**: Cloudflare R2 (bucket: `savestate-backups`, account: `3896f91bc02fe2ec4f45b9e92981e626`)
 - **Format**: JSON + MessagePack (for binary data) + age encryption
-- **Web Dashboard**: Next.js on Vercel
+- **Database**: Neon serverless Postgres (via `@neondatabase/serverless`) on Vercel
+- **API**: Vercel serverless functions (`api/webhook.ts`, `api/account.ts`, `api/lib/db.ts`)
+- **Payments**: Stripe (WithCandor account) — webhook + checkout flow
+- **Web Dashboard**: Next.js on Vercel (future)
 - **Adapters**: Plugin system (npm packages: @savestate/adapter-chatgpt, etc.)
+- **CI/CD**: GitHub Actions (ci.yml: build/lint/smoke; release.yml: npm + binaries + Homebrew)
 
 ## Competitive Landscape
 
@@ -256,8 +261,15 @@ Nobody is doing this comprehensively. The closest analogy is 1Password for passw
 - [x] Provisioning webhook (api/webhook.ts — Stripe → account creation + API key)
 - [x] Account API (api/account.ts — key validation, tier/features/storage)
 - [x] CLI login/logout commands (savestate login, savestate logout)
-- [x] Account database schema (Turso/SQLite — accounts, API keys, subscriptions)
-- [ ] Deploy webhook + API to Vercel (needs Turso DB + Stripe webhook secret)
+- [x] Account database schema — Neon serverless Postgres (switched from Turso/libSQL Jan 27 evening)
+- [x] Deploy webhook + API to Vercel — LIVE at savestate.dev/api/* (Jan 27 evening)
+  - `GET /api/account` — validates API key, returns tier/features/storage ✅
+  - `POST /api/webhook` — Stripe subscription lifecycle events ✅
+  - Stripe env vars (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET) configured
+  - Neon DATABASE_URL auto-injected via Vercel integration
+  - Stripe API version: 2025-12-15.clover
+- [ ] Configure Stripe webhook endpoint URL in Stripe Dashboard (savestate.dev/api/webhook)
+- [ ] End-to-end test: Stripe checkout → webhook → account provisioned → API key works
 - [ ] Welcome email with API key (post-checkout)
 - [ ] Cloud storage proxy (R2 bucket proxied through API for Pro/Team)
 - [ ] End-to-end test suite (snapshot → restore → verify across adapters)
@@ -269,7 +281,6 @@ Nobody is doing this comprehensively. The closest analogy is 1Password for passw
 ## Phase 4 — Growth & Scale
 
 - [ ] Web dashboard (Next.js) — subscriber management, snapshot browser
-- [ ] Stripe Checkout integration (payment page on savestate.dev)
 - [ ] Migration wizard (ChatGPT → Claude, etc.)
 - [ ] Pro tier features (cloud storage, auto-backups, all adapters)
 - [ ] Team features (shared backups, compliance, SSO)
@@ -286,10 +297,35 @@ Nobody is doing this comprehensively. The closest analogy is 1Password for passw
 
 Stripe account: WithCandor (shared across DBH Ventures startups pending LLC approvals)
 
+## Infrastructure Details
+
+### Vercel Projects
+- **Main project**: `savestate` (prj_V551D28C7WHtiVXZtr79MjuB648s) — has custom domain, env vars, Neon DB
+  - Domain: `savestate.dev` (landing page + API)
+  - Env vars: DATABASE_URL (Neon), STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+- **Legacy project**: `savestate-dev` (prj_DrEiUvqKcCb0yNrIMOcYKJfSGVo6) — same repo, no env vars (domain moved away Jan 27)
+- **GitHub**: savestatedev/savestate (auto-deploys on push to main)
+
+### Database
+- **Provider**: Neon serverless Postgres (via Vercel Neon integration)
+- **Driver**: `@neondatabase/serverless` (tagged template queries)
+- **Schema**: `accounts` table — id (UUID), email, api_key (ss_live_*), tier, stripe_customer_id, stripe_subscription_id, stripe_status, storage_used/limit, timestamps
+- **Indexes**: email, api_key, stripe_customer_id
+
+### Cloudflare R2
+- **Bucket**: `savestate-backups`
+- **Account**: `3896f91bc02fe2ec4f45b9e92981e626`
+- **Credentials**: 1Password → "clawdbot skill: cloudflare r2"
+- **First cloud backup**: `ss-2026-01-28T00-52-22-62j057` (479.7 KB)
+
+### 1Password Access
+- Password in `OP_PASSWORD` env var (from `~/.clawdbot/.env`)
+- The `!` in password breaks bash — use: `printf "%s" "BendDontBreak\\!Steve" > /tmp/.op-pw && export OP_SESSION_my=$(cat /tmp/.op-pw | op signin --account my.1password.com --raw) && rm -f /tmp/.op-pw`
+
 ---
 
 *Created: January 27, 2026*
-*Last updated: January 27, 2026*
-*Status: Phase 2 complete, Phase 3 in progress*
-*Version: 0.2.1 (6 adapters, S3/R2 storage, CI/CD, Homebrew, Stripe billing)*
+*Last updated: January 27, 2026 (late evening — DB switch to Neon, API deployed)*
+*Status: Phase 3 in progress — API live, awaiting Stripe webhook config + e2e test*
+*Version: 0.2.1 (6 adapters, S3/R2 storage, Neon Postgres, CI/CD, Homebrew, Stripe billing)*
 *Author: David Hurley / Steve (AI)*
