@@ -5,5 +5,10 @@
     "api/**/*.ts": {
       "runtime": "@vercel/node@5.5.28"
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/dashboard", "destination": "/dashboard.html" }
+  ],
+  "trailingSlash": false,
+  "cleanUrls": true
 }
