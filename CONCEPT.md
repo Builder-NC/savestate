@@ -249,15 +249,22 @@ Nobody is doing this comprehensively. The closest analogy is 1Password for passw
 - [x] v0.2.1 release pipeline tested (npm ✅, GitHub Release ✅, 4/5 binaries built)
 - [x] Incremental snapshots (delta-only captures, auto-detect parent, chain reconstruction)
 
-## Phase 3 — Launch Readiness
+## Phase 3 — Launch Readiness (in progress)
 
-- [ ] End-to-end test suite (snapshot → restore → verify across adapters)
 - [x] Incremental snapshots (delta-only captures, snapshot chaining) — done in Phase 2
-- [ ] GitHub Actions CI/CD (build, test, publish npm + Homebrew on release)
-- [ ] Binary releases + install.sh (macOS arm64/x64, Linux arm64/x64, Windows x64)
+- [x] Stripe Checkout integration (pricing section + Payment Links on savestate.dev)
+- [x] Provisioning webhook (api/webhook.ts — Stripe → account creation + API key)
+- [x] Account API (api/account.ts — key validation, tier/features/storage)
+- [x] CLI login/logout commands (savestate login, savestate logout)
+- [x] Account database schema (Turso/SQLite — accounts, API keys, subscriptions)
+- [ ] Deploy webhook + API to Vercel (needs Turso DB + Stripe webhook secret)
+- [ ] Welcome email with API key (post-checkout)
+- [ ] Cloud storage proxy (R2 bucket proxied through API for Pro/Team)
+- [ ] End-to-end test suite (snapshot → restore → verify across adapters)
 - [ ] Encrypted search index (client-side, encrypted separately)
 - [ ] Scheduled auto-backups (cron/daemon mode)
 - [ ] Search command: full implementation (currently scaffolded)
+- [ ] Documentation site (savestate.dev/docs — scaffolded, needs more pages)
 
 ## Phase 4 — Growth & Scale
 
