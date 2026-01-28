@@ -15,6 +15,7 @@ import type { Adapter } from '../types.js';
 import { ClawdbotAdapter } from './clawdbot.js';
 import { ClaudeCodeAdapter } from './claude-code.js';
 import { OpenAIAssistantsAdapter } from './openai-assistants.js';
+import { ChatGPTAdapter } from './chatgpt.js';
 
 /** Registry of all known adapters */
 const adapters = new Map<string, () => Adapter>();
@@ -90,8 +91,8 @@ export async function getAdapterInfo(): Promise<
 register('clawdbot', () => new ClawdbotAdapter());
 register('claude-code', () => new ClaudeCodeAdapter());
 register('openai-assistants', () => new OpenAIAssistantsAdapter());
+register('chatgpt', () => new ChatGPTAdapter());
 
 // Future adapters:
-// register('chatgpt', () => new ChatGPTAdapter());
 // register('claude-web', () => new ClaudeWebAdapter());
 // register('gemini', () => new GeminiAdapter());

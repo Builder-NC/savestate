@@ -35,15 +35,15 @@ export async function adaptersCommand(): Promise<void> {
     console.log(chalk.dim('    • clawdbot          — Clawdbot/Moltbot workspaces (SOUL.md, memory/, skills/, etc.)'));
     console.log(chalk.dim('    • claude-code       — Claude Code projects (CLAUDE.md, .claude/, settings)'));
     console.log(chalk.dim('    • openai-assistants  — OpenAI Assistants API (config, files, vector stores, threads)'));
+    console.log(chalk.dim('    • chatgpt           — ChatGPT data export (conversations, memories, instructions)'));
     console.log();
     console.log(chalk.dim('  Coming soon:'));
-    console.log(chalk.dim('    • chatgpt      — ChatGPT conversations & memories'));
     console.log(chalk.dim('    • claude-web    — Claude.ai memory & projects'));
     console.log(chalk.dim('    • gemini        — Google Gemini & Gems'));
     console.log(chalk.dim('    • custom-files  — Configurable file-based agents'));
     console.log();
     console.log(chalk.dim('  Install community adapters:'));
-    console.log(chalk.dim(`    ${chalk.white('npm install @savestate/adapter-chatgpt')}`));
+    console.log(chalk.dim(`    ${chalk.white('npm install @savestate/adapter-<name>')}`));
     console.log();
 
   } catch (err) {
