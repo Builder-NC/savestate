@@ -1,33 +1,34 @@
 /**
  * SaveState Account Database
  *
- * Uses Turso (libSQL) for edge-distributed SQLite.
+ * Uses Neon (serverless Postgres) via Vercel integration.
  * Stores accounts, API keys, and subscription status.
  */
 
-import { createClient, type Client } from '@libsql/client';
+import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 
-let _client: Client | null = null;
+let _sql: NeonQueryFunction<false, false> | null = null;
 
-export function getDb(): Client {
-  if (!_client) {
-    _client = createClient({
-      url: process.env.TURSO_DATABASE_URL || 'file:local.db',
-      authToken: process.env.TURSO_AUTH_TOKEN,
-    });
+export function getDb(): NeonQueryFunction<false, false> {
+  if (!_sql) {
+    const url = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL;
+    if (!url) {
+      throw new Error('DATABASE_URL or NEON_DATABASE_URL environment variable is required');
+    }
+    _sql = neon(url);
   }
-  return _client;
+  return _sql;
 }
 
 /**
  * Initialize the database schema.
  */
 export async function initDb(): Promise<void> {
-  const db = getDb();
+  const sql = getDb();
 
-  await db.execute(`
+  await sql`
     CREATE TABLE IF NOT EXISTS accounts (
-      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       email TEXT UNIQUE NOT NULL,
       name TEXT,
       api_key TEXT UNIQUE NOT NULL,
@@ -35,24 +36,24 @@ export async function initDb(): Promise<void> {
       stripe_customer_id TEXT,
       stripe_subscription_id TEXT,
       stripe_status TEXT DEFAULT 'inactive',
-      storage_used_bytes INTEGER DEFAULT 0,
-      storage_limit_bytes INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      storage_used_bytes BIGINT DEFAULT 0,
+      storage_limit_bytes BIGINT DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
     )
-  `);
+  `;
 
-  await db.execute(`
+  await sql`
     CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email)
-  `);
+  `;
 
-  await db.execute(`
+  await sql`
     CREATE INDEX IF NOT EXISTS idx_accounts_api_key ON accounts(api_key)
-  `);
+  `;
 
-  await db.execute(`
+  await sql`
     CREATE INDEX IF NOT EXISTS idx_accounts_stripe_customer ON accounts(stripe_customer_id)
-  `);
+  `;
 }
 
 // ─── Account Operations ──────────────────────────────────────
@@ -106,73 +107,60 @@ export async function createAccount(params: {
   stripeCustomerId: string;
   stripeSubscriptionId: string;
 }): Promise<Account> {
-  const db = getDb();
+  const sql = getDb();
   const apiKey = generateApiKey();
   const storageLimit = TIER_LIMITS[params.tier] || 0;
 
   // Check if account already exists (upgrade case)
-  const existing = await db.execute({
-    sql: 'SELECT * FROM accounts WHERE email = ?',
-    args: [params.email],
-  });
+  const existing = await sql`
+    SELECT * FROM accounts WHERE email = ${params.email}
+  `;
 
-  if (existing.rows.length > 0) {
+  if (existing.length > 0) {
     // Upgrade existing account
-    await db.execute({
-      sql: `UPDATE accounts SET 
-        tier = ?, 
-        stripe_customer_id = ?, 
-        stripe_subscription_id = ?,
+    const updated = await sql`
+      UPDATE accounts SET 
+        tier = ${params.tier}, 
+        stripe_customer_id = ${params.stripeCustomerId}, 
+        stripe_subscription_id = ${params.stripeSubscriptionId},
         stripe_status = 'active',
-        storage_limit_bytes = ?,
-        updated_at = datetime('now')
-      WHERE email = ?`,
-      args: [params.tier, params.stripeCustomerId, params.stripeSubscriptionId, storageLimit, params.email],
-    });
-
-    const updated = await db.execute({
-      sql: 'SELECT * FROM accounts WHERE email = ?',
-      args: [params.email],
-    });
-    return updated.rows[0] as unknown as Account;
+        storage_limit_bytes = ${storageLimit},
+        updated_at = NOW()
+      WHERE email = ${params.email}
+      RETURNING *
+    `;
+    return updated[0] as unknown as Account;
   }
 
   // Create new account
-  await db.execute({
-    sql: `INSERT INTO accounts (email, name, api_key, tier, stripe_customer_id, stripe_subscription_id, stripe_status, storage_limit_bytes)
-      VALUES (?, ?, ?, ?, ?, ?, 'active', ?)`,
-    args: [params.email, params.name || null, apiKey, params.tier, params.stripeCustomerId, params.stripeSubscriptionId, storageLimit],
-  });
-
-  const result = await db.execute({
-    sql: 'SELECT * FROM accounts WHERE email = ?',
-    args: [params.email],
-  });
-  return result.rows[0] as unknown as Account;
+  const result = await sql`
+    INSERT INTO accounts (email, name, api_key, tier, stripe_customer_id, stripe_subscription_id, stripe_status, storage_limit_bytes)
+    VALUES (${params.email}, ${params.name || null}, ${apiKey}, ${params.tier}, ${params.stripeCustomerId}, ${params.stripeSubscriptionId}, 'active', ${storageLimit})
+    RETURNING *
+  `;
+  return result[0] as unknown as Account;
 }
 
 /**
  * Look up an account by API key.
  */
 export async function getAccountByApiKey(apiKey: string): Promise<Account | null> {
-  const db = getDb();
-  const result = await db.execute({
-    sql: 'SELECT * FROM accounts WHERE api_key = ?',
-    args: [apiKey],
-  });
-  return result.rows.length > 0 ? (result.rows[0] as unknown as Account) : null;
+  const sql = getDb();
+  const result = await sql`
+    SELECT * FROM accounts WHERE api_key = ${apiKey}
+  `;
+  return result.length > 0 ? (result[0] as unknown as Account) : null;
 }
 
 /**
  * Look up an account by Stripe customer ID.
  */
 export async function getAccountByStripeCustomer(customerId: string): Promise<Account | null> {
-  const db = getDb();
-  const result = await db.execute({
-    sql: 'SELECT * FROM accounts WHERE stripe_customer_id = ?',
-    args: [customerId],
-  });
-  return result.rows.length > 0 ? (result.rows[0] as unknown as Account) : null;
+  const sql = getDb();
+  const result = await sql`
+    SELECT * FROM accounts WHERE stripe_customer_id = ${customerId}
+  `;
+  return result.length > 0 ? (result[0] as unknown as Account) : null;
 }
 
 /**
@@ -183,39 +171,47 @@ export async function updateSubscriptionStatus(
   status: string,
   tier?: string,
 ): Promise<void> {
-  const db = getDb();
+  const sql = getDb();
 
-  const updates = [`stripe_status = ?`, `updated_at = datetime('now')`];
-  const args: (string | number)[] = [status];
-
-  if (tier) {
-    updates.push('tier = ?');
-    updates.push('storage_limit_bytes = ?');
-    args.push(tier);
-    args.push(TIER_LIMITS[tier] || 0);
-  }
-
-  // Handle cancellation: downgrade to free
   if (status === 'canceled' || status === 'unpaid') {
-    updates.push("tier = 'free'");
-    updates.push('storage_limit_bytes = 0');
+    // Downgrade to free on cancellation
+    await sql`
+      UPDATE accounts SET 
+        stripe_status = ${status},
+        tier = 'free',
+        storage_limit_bytes = 0,
+        updated_at = NOW()
+      WHERE stripe_customer_id = ${stripeCustomerId}
+    `;
+  } else if (tier) {
+    const storageLimit = TIER_LIMITS[tier] || 0;
+    await sql`
+      UPDATE accounts SET 
+        stripe_status = ${status},
+        tier = ${tier},
+        storage_limit_bytes = ${storageLimit},
+        updated_at = NOW()
+      WHERE stripe_customer_id = ${stripeCustomerId}
+    `;
+  } else {
+    await sql`
+      UPDATE accounts SET 
+        stripe_status = ${status},
+        updated_at = NOW()
+      WHERE stripe_customer_id = ${stripeCustomerId}
+    `;
   }
-
-  args.push(stripeCustomerId);
-
-  await db.execute({
-    sql: `UPDATE accounts SET ${updates.join(', ')} WHERE stripe_customer_id = ?`,
-    args,
-  });
 }
 
 /**
  * Update storage usage for an account.
  */
 export async function updateStorageUsage(apiKey: string, bytesUsed: number): Promise<void> {
-  const db = getDb();
-  await db.execute({
-    sql: `UPDATE accounts SET storage_used_bytes = ?, updated_at = datetime('now') WHERE api_key = ?`,
-    args: [bytesUsed, apiKey],
-  });
+  const sql = getDb();
+  await sql`
+    UPDATE accounts SET 
+      storage_used_bytes = ${bytesUsed}, 
+      updated_at = NOW() 
+    WHERE api_key = ${apiKey}
+  `;
 }
