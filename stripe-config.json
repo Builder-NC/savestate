@@ -1,0 +1,38 @@
+{
+  "products": {
+    "pro": {
+      "product_id": "prod_Ts7JDG4QlJTBt6",
+      "price_id": "price_1SuN4PEJ7b5sfPTDks7Q6SHO",
+      "name": "SaveState Pro",
+      "amount_cents": 900,
+      "interval": "month",
+      "currency": "usd",
+      "features": [
+        "Scheduled auto-backups",
+        "Cloud storage (10GB)",
+        "All platform adapters",
+        "Search across snapshots",
+        "Web dashboard",
+        "Email alerts on backup failures"
+      ]
+    },
+    "team": {
+      "product_id": "prod_Ts7JeYmlMqwaO3",
+      "price_id": "price_1SuN4PEJ7b5sfPTDmE9uHVM6",
+      "name": "SaveState Team",
+      "amount_cents": 2900,
+      "interval": "month",
+      "currency": "usd",
+      "features": [
+        "Everything in Pro",
+        "Shared team backups",
+        "Compliance/audit trails",
+        "SSO",
+        "Priority support",
+        "Custom adapters"
+      ]
+    }
+  },
+  "stripe_account": "WithCandor (shared across startups)",
+  "created": "2026-01-27"
+}

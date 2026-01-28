@@ -222,43 +222,67 @@ Nobody is doing this comprehensively. The closest analogy is 1Password for passw
 
 ## Phase 1 — MVP ✅ (completed Jan 27, 2026)
 
-- [x] CLI scaffolding (init, snapshot, restore, list, diff, config, adapters)
+- [x] CLI scaffolding (init, snapshot, restore, list, diff, config, adapters, search)
 - [x] SAF format spec v0.1
 - [x] AES-256-GCM encryption with scrypt KDF
-- [x] Clawdbot/Moltbot adapter (full)
-- [x] Claude Code adapter (full)
-- [x] OpenAI Assistants adapter (stubbed)
+- [x] Clawdbot/Moltbot adapter (full extract + restore)
+- [x] Claude Code adapter (full extract + restore)
+- [x] OpenAI Assistants adapter (full — API v2, threads, files, vector stores)
 - [x] Local storage backend
-- [x] npm: @savestate/cli v0.1.1 + savestate-ai
+- [x] npm: @savestate/cli v0.2.0 + savestate-ai v0.1.0
 - [x] GitHub: savestatedev/savestate
-- [x] Landing page at savestate.dev
+- [x] Landing page at savestate.dev (dark developer-first design)
 
-## Phase 2 — Polish & Platforms
+## Phase 2 — Platforms & Infrastructure ✅ (completed Jan 27, 2026)
 
-- [ ] Finalize logo (transparent SVG)
-- [ ] OpenAI Assistants adapter: implement API calls
+- [x] Logo — transparent PNG + SVG (concentric blue rings, circular arrow, pause symbol)
+- [x] OpenAI Assistants adapter: full API implementation
+- [x] ChatGPT adapter (export-based: conversations, memories, custom instructions)
+- [x] Claude consumer adapter (claude.ai export + memory + Projects)
+- [x] Gemini adapter (Google Takeout + optional API capture)
+- [x] S3/R2 storage backend (AWS Sig V4, zero dependencies, Cloudflare R2 tested)
+- [x] Homebrew formula: `brew tap savestatedev/tap && brew install savestate`
+- [x] Stripe billing: Pro $9/mo + Team $29/mo (products live)
 - [ ] End-to-end test: full snapshot → restore cycle
-- [ ] Homebrew formula
-- [ ] ChatGPT adapter (data export + browser extension)
-- [ ] Claude consumer adapter (memory export + Projects)
-- [ ] S3/R2 storage backend
-- [ ] Incremental snapshots
+- [ ] Incremental snapshots (types defined, implementation pending)
+- [ ] Homebrew formula update to v0.2.0
 - [ ] GitHub Actions CI/CD
 - [ ] Binary releases + install.sh
 
-## Phase 3 — Launch & Growth
+## Phase 3 — Launch Readiness
 
+- [ ] End-to-end test suite (snapshot → restore → verify across adapters)
+- [ ] Incremental snapshots (delta-only captures, snapshot chaining)
+- [ ] GitHub Actions CI/CD (build, test, publish npm + Homebrew on release)
+- [ ] Binary releases + install.sh (macOS arm64/x64, Linux arm64/x64, Windows x64)
 - [ ] Encrypted search index (client-side, encrypted separately)
-- [ ] Web dashboard (Next.js)
-- [ ] Scheduled auto-backups (cron/daemon)
+- [ ] Scheduled auto-backups (cron/daemon mode)
+- [ ] Search command: full implementation (currently scaffolded)
+
+## Phase 4 — Growth & Scale
+
+- [ ] Web dashboard (Next.js) — subscriber management, snapshot browser
+- [ ] Stripe Checkout integration (payment page on savestate.dev)
 - [ ] Migration wizard (ChatGPT → Claude, etc.)
-- [ ] Gemini adapter
-- [ ] Pro tier billing ($9/mo)
-- [ ] Team features ($29/mo)
+- [ ] Pro tier features (cloud storage, auto-backups, all adapters)
+- [ ] Team features (shared backups, compliance, SSO)
 - [ ] Product Hunt launch
+- [ ] Blog post: "Your AI knows everything about you. What's your backup plan?"
+- [ ] Community adapters: Copilot, Poe, Character.ai, Ollama/LM Studio
+
+## Stripe Products (Live)
+
+| Tier | Product ID | Price ID | Monthly |
+|------|-----------|----------|---------|
+| Pro | prod_Ts7JDG4QlJTBt6 | price_1SuN4PEJ7b5sfPTDks7Q6SHO | $9 |
+| Team | prod_Ts7JeYmlMqwaO3 | price_1SuN4PEJ7b5sfPTDmE9uHVM6 | $29 |
+
+Stripe account: WithCandor (shared across DBH Ventures startups pending LLC approvals)
 
 ---
 
 *Created: January 27, 2026*
-*Status: Phase 1 complete, Phase 2 in progress*
+*Last updated: January 27, 2026*
+*Status: Phase 2 nearly complete, Phase 3 in progress*
+*Version: 0.2.0 (6 adapters, S3/R2 storage, Homebrew, Stripe billing)*
 *Author: David Hurley / Steve (AI)*
