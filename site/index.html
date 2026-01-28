@@ -607,6 +607,14 @@ nav .container {
   gap: 20px;
 }
 
+/* If odd number of feature cards, let last card span or center */
+@media (min-width: 901px) {
+  .features-grid {
+    max-width: 960px;
+    margin: 0 auto;
+  }
+}
+
 .feature-card {
   padding: 32px 28px;
   background: var(--bg-card);
@@ -671,7 +679,7 @@ nav .container {
 
 .platforms-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
 }
 
@@ -992,14 +1000,8 @@ nav .container {
 
   .platforms-grid {
     grid-template-columns: repeat(2, 1fr);
-    max-width: 400px;
+    max-width: 440px;
     margin: 0 auto;
-  }
-
-  .platforms-grid > :last-child {
-    grid-column: span 2;
-    max-width: 190px;
-    justify-self: center;
   }
 
   section { padding: 72px 0; }
@@ -1021,12 +1023,6 @@ nav .container {
 
   .platforms-grid {
     grid-template-columns: repeat(2, 1fr);
-  }
-
-  .platforms-grid > :last-child {
-    grid-column: span 2;
-    max-width: 190px;
-    justify-self: center;
   }
 
   .install-block {
@@ -1091,7 +1087,7 @@ nav .container {
   <div class="container">
     <div class="hero-badge">
       <span class="hero-badge-dot"></span>
-      Now available on npm
+      v0.2 — 6 platform adapters, incremental snapshots, S3/R2 storage
     </div>
     <h1>Time Machine<br>for AI</h1>
     <p class="hero-subtitle">
@@ -1119,22 +1115,22 @@ nav .container {
       </div>
       <div class="terminal-body">
         <div class="terminal-line">
-          <span class="terminal-prompt">$</span> <span class="terminal-cmd">npx @savestate/cli snapshot</span>
-        </div>
-        <div class="terminal-line">
-          <span class="terminal-output terminal-muted">⠋ Detecting platform...</span>
+          <span class="terminal-prompt">$</span> <span class="terminal-cmd">savestate snapshot</span>
         </div>
         <div class="terminal-line">
           <span class="terminal-success">✓</span> <span class="terminal-output">Platform detected: <span class="terminal-accent">claude-code</span></span>
         </div>
         <div class="terminal-line">
-          <span class="terminal-success">✓</span> <span class="terminal-output">Captured identity, memory, 47 conversations</span>
+          <span class="terminal-success">✓</span> <span class="terminal-output">Incremental snapshot created!</span>
         </div>
         <div class="terminal-line">
-          <span class="terminal-success">✓</span> <span class="terminal-output">Encrypted with AES-256-GCM</span>
+          <span class="terminal-output">  Changes: <span class="terminal-success">+3</span> added, <span class="terminal-accent">~5</span> modified, <span style="color:#94a3b8;">42 unchanged</span></span>
         </div>
         <div class="terminal-line">
-          <span class="terminal-success">✓</span> <span class="terminal-output">Snapshot saved: <span class="terminal-accent">savestate-2026-01-27T15:00:00Z.saf.enc</span></span>
+          <span class="terminal-output">  Saved:   <span class="terminal-accent">847 KB</span> vs full snapshot</span>
+        </div>
+        <div class="terminal-line">
+          <span class="terminal-success">✓</span> <span class="terminal-output">Encrypted &amp; stored (<span class="terminal-accent">12.4 KB</span>)</span>
         </div>
         <div class="terminal-line">
           <br><span class="terminal-prompt">$</span> <span class="terminal-muted">█</span>
@@ -1232,8 +1228,8 @@ nav .container {
       </div>
       <div class="feature-card">
         <span class="feature-icon">🔌</span>
-        <h3>Platform Adapters</h3>
-        <p>Works with ChatGPT, Claude, Gemini, Clawdbot, OpenAI Assistants API — and growing. Plug-in architecture for custom platforms.</p>
+        <h3>6 Platform Adapters</h3>
+        <p>ChatGPT, Claude, Claude Code, Gemini, OpenAI Assistants, Clawdbot — all built in. Plug-in architecture for custom platforms.</p>
       </div>
       <div class="feature-card">
         <span class="feature-icon">📦</span>
@@ -1251,9 +1247,14 @@ nav .container {
         <p>Like git — only captures what changed. Full version history with minimal storage. Diff any two snapshots.</p>
       </div>
       <div class="feature-card">
+        <span class="feature-icon">☁️</span>
+        <h3>Cloud or Local Storage</h3>
+        <p>Store locally, on S3, Cloudflare R2, or any sync folder (Dropbox, iCloud). Zero-knowledge — only encrypted data leaves your machine.</p>
+      </div>
+      <div class="feature-card">
         <span class="feature-icon">⌨️</span>
         <h3>CLI-First</h3>
-        <p>Built for developers who live in the terminal. Script it, cron it, pipe it. One <code>npx</code> command to start.</p>
+        <p>Built for developers who live in the terminal. Script it, cron it, pipe it. Also via Homebrew and standalone binary.</p>
       </div>
     </div>
   </div>
@@ -1265,33 +1266,38 @@ nav .container {
     <div class="platforms-header">
       <span class="section-label">Platform Support</span>
       <h2 class="section-title">Works where your AI lives.</h2>
-      <p class="section-subtitle" style="margin: 0 auto;">Extract and restore across platforms. Community adapters welcome.</p>
+      <p class="section-subtitle" style="margin: 0 auto;">6 built-in adapters. Full extract &amp; restore for agent platforms, export-based for consumer apps. Community adapters welcome.</p>
     </div>
     <div class="platforms-grid">
       <div class="platform-card">
         <div class="platform-icon">🤖</div>
         <h4>Clawdbot</h4>
-        <span class="platform-badge badge-available">Available</span>
+        <span class="platform-badge badge-available">Full Support</span>
       </div>
       <div class="platform-card">
         <div class="platform-icon">🖥️</div>
         <h4>Claude Code</h4>
-        <span class="platform-badge badge-available">Available</span>
+        <span class="platform-badge badge-available">Full Support</span>
       </div>
       <div class="platform-card">
         <div class="platform-icon">⚡</div>
-        <h4>OpenAI API</h4>
-        <span class="platform-badge badge-soon">Coming Soon</span>
+        <h4>OpenAI Assistants</h4>
+        <span class="platform-badge badge-available">Full Support</span>
       </div>
       <div class="platform-card">
         <div class="platform-icon">💬</div>
         <h4>ChatGPT</h4>
-        <span class="platform-badge badge-soon">Coming Soon</span>
+        <span class="platform-badge badge-available">Extract + Partial</span>
+      </div>
+      <div class="platform-card">
+        <div class="platform-icon">🟣</div>
+        <h4>Claude (claude.ai)</h4>
+        <span class="platform-badge badge-available">Extract + Partial</span>
       </div>
       <div class="platform-card">
         <div class="platform-icon">✨</div>
         <h4>Gemini</h4>
-        <span class="platform-badge badge-planned">Planned</span>
+        <span class="platform-badge badge-available">Extract + Partial</span>
       </div>
     </div>
   </div>
@@ -1346,7 +1352,9 @@ nav .container {
 <span class="tree">├──</span> <span class="folder">conversations/</span>
 <span class="tree">│   └──</span> <span class="folder">threads/</span>           <span class="tree">← individual chats</span>
 <span class="tree">└──</span> <span class="folder">meta/</span>
-    <span class="tree">└──</span> <span class="file">platform.json</span>      <span class="tree">← source &amp; restore hints</span>
+    <span class="tree">├──</span> <span class="file">platform.json</span>      <span class="tree">← source &amp; restore hints</span>
+    <span class="tree">├──</span> <span class="file">snapshot-chain.json</span> <span class="tree">← incremental chain</span>
+    <span class="tree">└──</span> <span class="file">delta-manifest.json</span> <span class="tree">← what changed (incremental)</span>
       </div>
     </div>
   </div>
@@ -1361,11 +1369,15 @@ nav .container {
 
     <div class="install-block">
       <code><span class="prompt-char">$</span> npm install -g @savestate/cli</code>
-      <button class="copy-btn" onclick="copyInstall(this)">
+      <button class="copy-btn" onclick="copyInstall(this, 'npm install -g @savestate/cli')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         Copy
       </button>
     </div>
+    <p style="color: var(--text-dim); font-size: 14px; margin-top: -32px; margin-bottom: 48px;">
+      Also available via <code style="color: var(--text-muted);">brew tap savestatedev/tap && brew install savestate</code>
+      &nbsp;or&nbsp; <code style="color: var(--text-muted);">curl -fsSL https://savestate.dev/install.sh | sh</code>
+    </p>
 
     <div class="footer-links">
       <a href="https://www.npmjs.com/package/@savestate/cli" target="_blank" rel="noopener">
@@ -1391,8 +1403,8 @@ nav .container {
 <!-- ==================== SCRIPTS ==================== -->
 <script>
 // Copy button
-function copyInstall(btn) {
-  navigator.clipboard.writeText('npm install -g @savestate/cli').then(() => {
+function copyInstall(btn, text) {
+  navigator.clipboard.writeText(text || 'npm install -g @savestate/cli').then(() => {
     btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
     setTimeout(() => {
       btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy';
