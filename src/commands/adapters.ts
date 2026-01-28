@@ -37,9 +37,9 @@ export async function adaptersCommand(): Promise<void> {
     console.log(chalk.dim('    • claude-web        — Claude.ai conversations, memory & projects (data export)'));
     console.log(chalk.dim('    • openai-assistants  — OpenAI Assistants API (config, files, vector stores, threads)'));
     console.log(chalk.dim('    • chatgpt           — ChatGPT data export (conversations, memories, instructions)'));
+    console.log(chalk.dim('    • gemini            — Google Gemini & Gems (Takeout export + optional API)'));
     console.log();
     console.log(chalk.dim('  Coming soon:'));
-    console.log(chalk.dim('    • gemini        — Google Gemini & Gems'));
     console.log(chalk.dim('    • custom-files  — Configurable file-based agents'));
     console.log();
     console.log(chalk.dim('  Install community adapters:'));
