@@ -42,12 +42,16 @@ html {
   -moz-osx-font-smoothing: grayscale;
 }
 
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
 body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--text);
   line-height: 1.6;
-  overflow-x: hidden;
 }
 
 /* Dot grid background */
@@ -969,6 +973,8 @@ nav .container {
   color: var(--text-muted);
   position: relative;
   white-space: pre;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .saf-preview .folder { color: var(--blue-light); }
@@ -1143,11 +1149,19 @@ nav .container {
   .hero h1 { font-size: 36px; }
   .hero-subtitle { font-size: 16px; }
 
+  .hero-badge {
+    font-size: 11px;
+    padding: 5px 12px 5px 7px;
+    max-width: 90vw;
+    text-align: center;
+    line-height: 1.4;
+  }
+
   .btn { padding: 12px 22px; font-size: 14px; }
   .btn-group { flex-direction: column; align-items: center; }
 
   .terminal { margin: 0 -12px; border-radius: 8px; }
-  .terminal-body { padding: 16px; font-size: 12px; }
+  .terminal-body { padding: 16px; font-size: 12px; overflow-x: auto; }
 
   .platforms-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -1174,13 +1188,38 @@ nav .container {
   .footer-links { flex-wrap: wrap; justify-content: center; gap: 20px; }
 
   .open-format-inner { padding: 36px 20px; }
-  .saf-preview { font-size: 11px; padding: 16px; }
+  .saf-preview {
+    font-size: 10px;
+    padding: 14px;
+    max-width: calc(100vw - 80px);
+    overflow-x: auto;
+  }
 
-  .cli-block pre { font-size: 11px; padding: 16px; }
+  .cli-block pre {
+    font-size: 11px;
+    padding: 16px;
+    overflow-x: auto;
+  }
+
+  .step-code {
+    font-size: 12px;
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-badge {
+    font-size: 11px;
+    padding: 6px 14px 6px 10px;
+  }
 }
 
 @media (max-width: 380px) {
   .hero h1 { font-size: 30px; }
+
+  .hero-badge {
+    font-size: 10px;
+  }
 }
 
 /* ============================================================
@@ -1573,9 +1612,9 @@ nav .container {
         Copy
       </button>
     </div>
-    <p style="color: var(--text-dim); font-size: 14px; margin-top: -32px; margin-bottom: 48px;">
-      Also available via <code style="color: var(--text-muted);">brew tap savestatedev/tap && brew install savestate</code>
-      &nbsp;or&nbsp; <code style="color: var(--text-muted);">curl -fsSL https://savestate.dev/install.sh | sh</code>
+    <p style="color: var(--text-dim); font-size: 13px; margin-top: -32px; margin-bottom: 48px; max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.8; word-break: break-word;">
+      Also via Homebrew: <code style="color: var(--text-muted); font-size: 12px;">brew install savestatedev/tap/savestate</code><br>
+      Or: <code style="color: var(--text-muted); font-size: 12px;">curl -fsSL https://savestate.dev/install.sh | sh</code>
     </p>
 
     <div class="footer-links">
