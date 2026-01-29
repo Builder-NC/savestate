@@ -82,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!objectKey) {
           return res.status(400).json({ error: 'Missing ?key= parameter' });
         }
-        return await handleDelete(account.id, objectKey, res);
+        return await handleDelete(account, objectKey, res);
       }
 
       default:
@@ -152,18 +152,27 @@ async function handleUpload(
   }
   const body = Buffer.concat(chunks);
 
-  // Check storage limit
-  const newUsage = account.storage_used_bytes + body.length;
-  if (newUsage > account.storage_limit_bytes) {
+  const fullKey = `accounts/${account.id}/${objectKey}`;
+
+  // Check if file already exists (for re-uploads)
+  const headRes = await r2Request('HEAD', fullKey);
+  const existingSize = headRes.ok ? parseInt(headRes.headers.get('content-length') || '0') : 0;
+
+  // Calculate net change (new size minus old size if replacing)
+  const netChange = body.length - existingSize;
+  const newUsage = account.storage_used_bytes + netChange;
+
+  // Check storage limit (only if increasing usage)
+  if (netChange > 0 && newUsage > account.storage_limit_bytes) {
     return res.status(413).json({
       error: 'Storage limit exceeded',
       used: account.storage_used_bytes,
       limit: account.storage_limit_bytes,
       needed: body.length,
+      existing: existingSize,
     });
   }
 
-  const fullKey = `accounts/${account.id}/${objectKey}`;
   const r2Res = await r2Request('PUT', fullKey, { body });
 
   if (!r2Res.ok) {
@@ -171,25 +180,41 @@ async function handleUpload(
   }
 
   // Update storage usage
-  await updateStorageUsageById(account.id, newUsage);
+  await updateStorageUsageById(account.id, Math.max(0, newUsage));
 
   return res.status(200).json({
     key: objectKey,
     size: body.length,
-    storageUsed: newUsage,
+    replaced: existingSize > 0,
+    storageUsed: Math.max(0, newUsage),
     storageLimit: account.storage_limit_bytes,
   });
 }
 
-async function handleDelete(accountId: string, objectKey: string, res: VercelResponse) {
-  const fullKey = `accounts/${accountId}/${objectKey}`;
+async function handleDelete(
+  account: { id: string; storage_used_bytes: number },
+  objectKey: string,
+  res: VercelResponse,
+) {
+  const fullKey = `accounts/${account.id}/${objectKey}`;
+  
+  // First, get the object size so we can update storage usage
+  const headRes = await r2Request('HEAD', fullKey);
+  const fileSize = headRes.ok ? parseInt(headRes.headers.get('content-length') || '0') : 0;
+
   const r2Res = await r2Request('DELETE', fullKey);
 
   if (!r2Res.ok && r2Res.status !== 204) {
     return res.status(502).json({ error: 'Failed to delete' });
   }
 
-  return res.status(200).json({ deleted: objectKey });
+  // Update storage usage (subtract deleted file size)
+  if (fileSize > 0) {
+    const newUsage = Math.max(0, account.storage_used_bytes - fileSize);
+    await updateStorageUsageById(account.id, newUsage);
+  }
+
+  return res.status(200).json({ deleted: objectKey, freedBytes: fileSize });
 }
 
 // ─── R2 / S3 Signing ────────────────────────────────────────

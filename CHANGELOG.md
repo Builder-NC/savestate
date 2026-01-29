@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.1] - 2026-01-29
+
+### Cloud Storage Improvements
+
+- **Fixed**: CLI now properly calls the cloud storage API (was using wrong endpoints)
+- **Fixed**: Storage usage tracking on upload/delete (handles re-uploads correctly)
+- **Added**: `savestate cloud delete` command for removing cloud snapshots
+- **Improved**: Storage quota calculation accounts for file replacements
+- **Improved**: Better error messages for cloud operations
+
+---
+
 ## [0.4.0] - 2026-01-29
 
 ### 🔒 Security & Pricing Enforcement

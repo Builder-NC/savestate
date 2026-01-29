@@ -7,9 +7,8 @@
 
 import chalk from 'chalk';
 import ora from 'ora';
-import { existsSync, readFileSync, createReadStream, createWriteStream, statSync } from 'node:fs';
-import { join, basename } from 'node:path';
-import { pipeline } from 'node:stream/promises';
+import { existsSync, readFileSync, writeFileSync, createWriteStream, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { isInitialized, loadConfig, localConfigDir } from '../config.js';
 import { loadIndex } from '../index-file.js';
 
@@ -57,8 +56,9 @@ async function verifySubscription(): Promise<SubscriptionStatus> {
 
     const data = await res.json() as Record<string, unknown>;
     const tier = (data.tier as string || 'free').toLowerCase();
-    const cloudStorageUsed = data.cloudStorageUsed as number || 0;
-    const cloudStorageLimit = data.cloudStorageLimit as number || 0;
+    const storage = data.storage as { used?: number; limit?: number } || {};
+    const cloudStorageUsed = storage.used || 0;
+    const cloudStorageLimit = storage.limit || 0;
 
     if (tier === 'pro' || tier === 'team') {
       return { valid: true, tier, cloudStorageUsed, cloudStorageLimit };
@@ -75,48 +75,72 @@ async function verifySubscription(): Promise<SubscriptionStatus> {
 }
 
 /**
- * Get presigned upload URL from API
+ * Upload snapshot to cloud via proxy API
  */
-async function getUploadUrl(snapshotId: string, size: number): Promise<{ url: string; fields?: Record<string, string> } | null> {
+async function uploadToCloud(snapshotId: string, data: Buffer): Promise<{ success: boolean; error?: string }> {
   const config = await loadConfig();
   const extConfig = config as unknown as Record<string, unknown>;
   const apiKey = extConfig.apiKey as string | undefined;
 
   try {
-    const res = await fetch(`${API_BASE}/storage/upload-url`, {
-      method: 'POST',
+    const key = `snapshots/${snapshotId}.saf.enc`;
+    const res = await fetch(`${API_BASE}/storage?key=${encodeURIComponent(key)}`, {
+      method: 'PUT',
       headers: {
         Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/octet-stream',
       },
-      body: JSON.stringify({ snapshotId, size }),
+      body: data,
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      return { success: false, error: body.error || `HTTP ${res.status}` };
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Upload failed' };
+  }
+}
+
+/**
+ * Download snapshot from cloud via proxy API
+ */
+async function downloadFromCloud(snapshotId: string): Promise<Buffer | null> {
+  const config = await loadConfig();
+  const extConfig = config as unknown as Record<string, unknown>;
+  const apiKey = extConfig.apiKey as string | undefined;
+
+  try {
+    const key = `snapshots/${snapshotId}.saf.enc`;
+    const res = await fetch(`${API_BASE}/storage?key=${encodeURIComponent(key)}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
     });
 
     if (!res.ok) return null;
-    return await res.json() as { url: string; fields?: Record<string, string> };
+    return Buffer.from(await res.arrayBuffer());
   } catch {
     return null;
   }
 }
 
 /**
- * Get presigned download URL from API
+ * Delete snapshot from cloud
  */
-async function getDownloadUrl(snapshotId: string): Promise<string | null> {
+async function deleteFromCloud(snapshotId: string): Promise<boolean> {
   const config = await loadConfig();
   const extConfig = config as unknown as Record<string, unknown>;
   const apiKey = extConfig.apiKey as string | undefined;
 
   try {
-    const res = await fetch(`${API_BASE}/storage/download-url?id=${snapshotId}`, {
+    const key = `snapshots/${snapshotId}.saf.enc`;
+    const res = await fetch(`${API_BASE}/storage?key=${encodeURIComponent(key)}`, {
+      method: 'DELETE',
       headers: { Authorization: `Bearer ${apiKey}` },
     });
-
-    if (!res.ok) return null;
-    const data = await res.json() as { url: string };
-    return data.url;
+    return res.ok;
   } catch {
-    return null;
+    return false;
   }
 }
 
@@ -129,13 +153,19 @@ async function listCloudSnapshots(): Promise<Array<{ id: string; size: number; c
   const apiKey = extConfig.apiKey as string | undefined;
 
   try {
-    const res = await fetch(`${API_BASE}/storage/list`, {
+    const res = await fetch(`${API_BASE}/storage?list=true`, {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
 
     if (!res.ok) return [];
-    const data = await res.json() as { snapshots: Array<{ id: string; size: number; createdAt: string }> };
-    return data.snapshots || [];
+    const data = await res.json() as { items: Array<{ key: string; size: number; lastModified: string }> };
+    
+    // Transform API response to expected format
+    return (data.items || []).map(item => ({
+      id: item.key.replace('snapshots/', '').replace('.saf.enc', ''),
+      size: item.size,
+      createdAt: item.lastModified,
+    }));
   } catch {
     return [];
   }
@@ -220,23 +250,12 @@ export async function cloudPushCommand(options: CloudOptions): Promise<void> {
     const uploadSpinner = ora(`  Uploading ${entry.id.slice(0, 8)}... (${Math.round(stat.size / 1024)} KB)`).start();
 
     try {
-      const uploadInfo = await getUploadUrl(entry.id, stat.size);
-      if (!uploadInfo) {
-        uploadSpinner.fail(`  ${entry.id.slice(0, 8)} — failed to get upload URL`);
-        failed++;
-        continue;
-      }
-
-      // Upload the file
+      // Read and upload the file through the proxy API
       const fileBuffer = readFileSync(filePath);
-      const uploadRes = await fetch(uploadInfo.url, {
-        method: 'PUT',
-        body: fileBuffer,
-        headers: { 'Content-Type': 'application/octet-stream' },
-      });
+      const result = await uploadToCloud(entry.id, fileBuffer);
 
-      if (!uploadRes.ok) {
-        uploadSpinner.fail(`  ${entry.id.slice(0, 8)} — upload failed (${uploadRes.status})`);
+      if (!result.success) {
+        uploadSpinner.fail(`  ${entry.id.slice(0, 8)} — ${result.error || 'upload failed'}`);
         failed++;
         continue;
       }
@@ -323,20 +342,15 @@ export async function cloudPullCommand(options: CloudOptions): Promise<void> {
     const dlSpinner = ora(`  Downloading ${snap.id.slice(0, 8)}...`).start();
 
     try {
-      const url = await getDownloadUrl(snap.id);
-      if (!url) {
-        dlSpinner.fail(`  ${snap.id.slice(0, 8)} — failed to get download URL`);
-        continue;
-      }
-
-      const res = await fetch(url);
-      if (!res.ok || !res.body) {
+      const data = await downloadFromCloud(snap.id);
+      if (!data) {
         dlSpinner.fail(`  ${snap.id.slice(0, 8)} — download failed`);
         continue;
       }
 
       const fileStream = createWriteStream(filePath);
-      await pipeline(res.body as unknown as NodeJS.ReadableStream, fileStream);
+      fileStream.write(data);
+      fileStream.end();
 
       dlSpinner.succeed(`  ${snap.id.slice(0, 8)} — downloaded`);
       success++;
@@ -400,6 +414,88 @@ export async function cloudListCommand(): Promise<void> {
 }
 
 /**
+ * Delete cloud snapshots
+ */
+export async function cloudDeleteCommand(options: CloudOptions): Promise<void> {
+  console.log();
+
+  if (!options.id && !options.all) {
+    console.log(chalk.red('✗ Specify --id <snapshot> or --all to delete'));
+    process.exit(1);
+  }
+
+  // Verify subscription
+  const spinner = ora('Verifying subscription...').start();
+  const sub = await verifySubscription();
+
+  if (!sub.valid) {
+    spinner.fail('Subscription required');
+    console.log();
+    console.log(chalk.red(`  ${sub.error}`));
+    process.exit(1);
+  }
+
+  spinner.text = 'Fetching cloud snapshots...';
+  const cloudSnapshots = await listCloudSnapshots();
+  spinner.stop();
+
+  if (cloudSnapshots.length === 0) {
+    console.log(chalk.yellow('No snapshots in cloud storage.'));
+    process.exit(0);
+  }
+
+  // Filter
+  let toDelete = cloudSnapshots;
+  if (options.id) {
+    toDelete = cloudSnapshots.filter(s => s.id === options.id || s.id.startsWith(options.id!));
+    if (toDelete.length === 0) {
+      console.log(chalk.red(`Snapshot not found in cloud: ${options.id}`));
+      process.exit(1);
+    }
+  }
+
+  // Confirm deletion
+  if (!options.force) {
+    const readline = await import('node:readline');
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+
+    const answer = await new Promise<string>((resolve) => {
+      rl.question(chalk.yellow(`  Delete ${toDelete.length} snapshot(s) from cloud? [y/N] `), (ans) => {
+        rl.close();
+        resolve(ans.trim().toLowerCase());
+      });
+    });
+
+    if (answer !== 'y' && answer !== 'yes') {
+      console.log(chalk.dim('  Cancelled.'));
+      process.exit(0);
+    }
+  }
+
+  console.log();
+  console.log(chalk.blue(`Deleting ${toDelete.length} snapshot(s)...`));
+  console.log();
+
+  let success = 0;
+  for (const snap of toDelete) {
+    const delSpinner = ora(`  Deleting ${snap.id.slice(0, 8)}...`).start();
+    const ok = await deleteFromCloud(snap.id);
+    if (ok) {
+      delSpinner.succeed(`  ${snap.id.slice(0, 8)} — deleted`);
+      success++;
+    } else {
+      delSpinner.fail(`  ${snap.id.slice(0, 8)} — failed`);
+    }
+  }
+
+  console.log();
+  console.log(chalk.green(`✓ Deleted ${success} snapshot(s) from cloud`));
+}
+
+/**
  * Main cloud command handler
  */
 export async function cloudCommand(subcommand: string, options: CloudOptions): Promise<void> {
@@ -413,6 +509,9 @@ export async function cloudCommand(subcommand: string, options: CloudOptions): P
     case 'list':
       await cloudListCommand();
       break;
+    case 'delete':
+      await cloudDeleteCommand(options);
+      break;
     default:
       console.log(chalk.red(`Unknown cloud command: ${subcommand}`));
       console.log();
@@ -420,6 +519,8 @@ export async function cloudCommand(subcommand: string, options: CloudOptions): P
       console.log('  savestate cloud push [--id <id>] [--all]   Push snapshots to cloud');
       console.log('  savestate cloud pull [--id <id>] [--all]   Pull snapshots from cloud');
       console.log('  savestate cloud list                       List cloud snapshots');
+      console.log('  savestate cloud delete --id <id> [--force] Delete cloud snapshot');
+      console.log('  savestate cloud delete --all [--force]     Delete all cloud snapshots');
       process.exit(1);
   }
 }
