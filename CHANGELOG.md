@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.5.0] - 2026-02-02
+
+### 🚀 Full OpenClaw Runtime State Capture
+
+The OpenClaw/Clawdbot adapter now captures your **complete agent state** for true personality restoration:
+
+#### New Captures
+- **Gateway config** (`openclaw.json`) — agent definitions, model preferences, channel routing
+- **Cron jobs** (`cron/jobs.json`) — all scheduled behaviors and reminders
+- **Device identity** — device pairing and authentication
+- **Paired nodes** — mobile node relationships
+- **Channel state** — Telegram update offsets for message continuity
+- **Memory databases** — SQLite semantic memory (up to 100MB per agent)
+- **Credentials** — channel auth tokens (opt-in with `--include-credentials`)
+
+#### Security
+- API keys and secrets are **redacted by default** in gateway config
+- Credentials excluded unless explicitly requested
+- Memory databases indexed with SHA-256 checksums
+
+#### New CLI Options
+```bash
+savestate snapshot --include-credentials  # Include channel auth tokens
+savestate snapshot --no-redact-secrets    # Keep API keys in config
+savestate snapshot --agent-id main        # Backup single agent only
+```
+
+#### Additional Identity Files
+- Now captures: `IDENTITY.md`, `BOOTSTRAP.md`, `HEARTBEAT.md`
+
+#### Backward Compatible
+- Supports all config directory names: `.openclaw`, `.moltbot`, `.clawdbot`
+- Supports all gateway config names: `openclaw.json`, `moltbot.json`, `clawdbot.json`
+
+---
+
 ## [0.4.2] - 2026-01-29
 
 ### Bug Fixes
