@@ -60,12 +60,40 @@ savestate restore latest
 
 | Platform | Extract | Restore | Status |
 |----------|---------|---------|--------|
-| **Clawdbot / Moltbot** | ✅ | ✅ | Available now |
-| **OpenAI Assistants API** | ✅ | ✅ | Coming soon |
-| **Custom file-based agents** | ✅ | ✅ | Coming soon |
-| **ChatGPT** | ✅ | ⚠️ Partial | Planned |
-| **Claude** | ✅ | ⚠️ Partial | Planned |
-| **Gemini** | ✅ | ⚠️ Limited | Planned |
+| **OpenClaw / Clawdbot / Moltbot** | ✅ | ✅ | **Full support** |
+| **OpenAI Assistants API** | ✅ | ✅ | Available |
+| **Claude Code** | ✅ | ✅ | Available |
+| **ChatGPT** | ✅ | ⚠️ Partial | Available |
+| **Claude (consumer)** | ✅ | ⚠️ Partial | Available |
+| **Gemini** | ✅ | ⚠️ Limited | Available |
+
+### OpenClaw Full Backup (v0.3.0+)
+
+The OpenClaw adapter captures your **complete agent state**:
+
+| Component | What's Captured |
+|-----------|-----------------|
+| **Identity** | SOUL.md, USER.md, AGENTS.md, TOOLS.md, IDENTITY.md |
+| **Memory** | MEMORY.md, memory/*.md, memory SQLite databases |
+| **Skills** | All SKILL.md files + scripts |
+| **Scripts** | personal-scripts/, cron-wrappers/ |
+| **Extensions** | Extension configs |
+| **Conversations** | All session JSONL files (1000+ sessions) |
+| **Gateway Config** | openclaw.json (agent defs, models, routing) |
+| **Cron Jobs** | Scheduled tasks and behaviors |
+| **Channel State** | Telegram offsets, message continuity |
+| **Device Identity** | Device pairing, node relationships |
+
+```bash
+# Full backup including semantic memory DBs
+savestate snapshot
+
+# Include credentials (channel auth tokens)
+savestate snapshot --include-credentials
+
+# Backup specific agent only
+savestate snapshot --agent-id main
+```
 
 Community adapters welcome! See [Contributing](#contributing).
 

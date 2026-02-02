@@ -1,17 +1,30 @@
 /**
- * Clawdbot Adapter
+ * Clawdbot / OpenClaw Adapter
  *
- * First-party adapter for Clawdbot / Moltbot workspaces.
- * Reads SOUL.md, MEMORY.md, memory/, USER.md, TOOLS.md,
- * skills/, personal-scripts/, extensions/, conversation logs,
- * cron wrappers, and config files.
+ * First-party adapter for Clawdbot / Moltbot / OpenClaw workspaces.
  *
- * This is the dogfood adapter — SaveState eats its own cooking.
+ * Captures:
+ *   Workspace: SOUL.md, MEMORY.md, memory/, USER.md, TOOLS.md, AGENTS.md
+ *   Skills: SKILL.md + scripts per skill
+ *   Personal scripts: personal-scripts/, cron-wrappers/
+ *   Extensions: extension configs
+ *   Conversations: session JSONL files
+ *
+ * NEW in v0.3.0 - Full OpenClaw runtime state:
+ *   Gateway config: openclaw.json (agent defs, model config, routing)
+ *   Cron jobs: cron/jobs.json (scheduled behaviors)
+ *   Credentials: channel auth, OAuth tokens
+ *   Device identity: device pairing
+ *   Paired nodes: mobile node pairing
+ *   Memory databases: SQLite semantic memory
+ *   Channel state: telegram offsets, whatsapp session, etc.
+ *
+ * This is the dogfood adapter - SaveState eats its own cooking.
  */
 
-import { readFile, writeFile, readdir, stat, rename, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, readdir, stat, rename, mkdir, copyFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join, dirname, extname, relative } from 'node:path';
+import { join, dirname, extname, relative, basename } from 'node:path';
 import { homedir } from 'node:os';
 import type {
   Adapter,
@@ -26,8 +39,42 @@ import type {
 } from '../types.js';
 import { SAF_VERSION, generateSnapshotId, computeChecksum } from '../format.js';
 
+// ─── OpenClaw Runtime State Types ────────────────────────────
+
+export interface OpenClawState {
+  /** Gateway configuration (openclaw.json) */
+  gatewayConfig?: string;
+  /** Cron jobs configuration */
+  cronJobs?: string;
+  /** Device identity */
+  deviceIdentity?: Record<string, string>;
+  /** Paired nodes */
+  pairedNodes?: Record<string, string>;
+  /** Channel credentials (redacted by default) */
+  credentials?: Record<string, string>;
+  /** Channel state (telegram offsets, etc.) */
+  channelState?: Record<string, string>;
+  /** Memory database paths (for binary backup) */
+  memoryDatabases?: MemoryDatabaseEntry[];
+}
+
+export interface MemoryDatabaseEntry {
+  /** Agent ID this database belongs to */
+  agentId: string;
+  /** Relative path within archive */
+  archivePath: string;
+  /** Original file path */
+  sourcePath: string;
+  /** Size in bytes */
+  size: number;
+  /** SHA-256 checksum */
+  checksum: string;
+}
+
+// ─── Configuration ───────────────────────────────────────────
+
 /** Files that constitute the agent's identity */
-const IDENTITY_FILES = ['SOUL.md', 'USER.md', 'AGENTS.md', 'TOOLS.md'];
+const IDENTITY_FILES = ['SOUL.md', 'USER.md', 'AGENTS.md', 'TOOLS.md', 'IDENTITY.md', 'BOOTSTRAP.md', 'HEARTBEAT.md'];
 
 /** Directories containing memory data */
 const MEMORY_DIRS = ['memory'];
@@ -37,6 +84,12 @@ const MEMORY_FILES = ['memory.md', 'MEMORY.md'];
 
 /** Config files to capture at workspace root */
 const CONFIG_FILES = ['.env', 'config.json', 'config.yaml', 'config.yml', '.savestate/config.json'];
+
+/** OpenClaw config directory names (in order of preference) */
+const OPENCLAW_CONFIG_DIRS = ['.openclaw', '.moltbot', '.clawdbot'];
+
+/** Gateway config file names (in order of preference) */
+const GATEWAY_CONFIG_FILES = ['openclaw.json', 'moltbot.json', 'clawdbot.json'];
 
 /** File extensions to skip as binary */
 const BINARY_EXTENSIONS = new Set([
@@ -50,43 +103,68 @@ const BINARY_EXTENSIONS = new Set([
   '.DS_Store',
 ]);
 
-/** Maximum file size to capture (1MB) */
-const MAX_FILE_SIZE = 1024 * 1024;
+/** Maximum file size for text files (1MB) */
+const MAX_TEXT_FILE_SIZE = 1024 * 1024;
 
-/** Separator used in concatenated personality */
-const FILE_SEPARATOR_PREFIX = '--- ';
-const FILE_SEPARATOR_SUFFIX = ' ---';
+/** Maximum file size for binary files like SQLite (100MB) */
+const MAX_BINARY_FILE_SIZE = 100 * 1024 * 1024;
 
 /** Directories to skip when scanning */
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.next', '__pycache__', '.venv', 'venv']);
 
+/** Sensitive fields to redact from gateway config */
+const SENSITIVE_CONFIG_FIELDS = ['apiKey', 'token', 'secret', 'password', 'accessToken', 'refreshToken'];
+
+export interface ClawdbotAdapterOptions {
+  /** Include credentials in backup (default: false for security) */
+  includeCredentials?: boolean;
+  /** Include memory SQLite databases (default: true, but large!) */
+  includeMemoryDatabases?: boolean;
+  /** Redact API keys from gateway config (default: true) */
+  redactSecrets?: boolean;
+  /** Specific agent ID to backup (default: all agents) */
+  agentId?: string;
+}
+
 export class ClawdbotAdapter implements Adapter {
   readonly id = 'clawdbot';
-  readonly name = 'Clawdbot';
-  readonly platform = 'clawdbot';
-  readonly version = '0.2.0';
+  readonly name = 'OpenClaw';
+  readonly platform = 'openclaw';
+  readonly version = '0.3.0';
 
   private readonly workspaceDir: string;
+  private readonly options: ClawdbotAdapterOptions;
   private warnings: string[] = [];
 
-  constructor(workspaceDir?: string) {
+  constructor(workspaceDir?: string, options?: ClawdbotAdapterOptions) {
     this.workspaceDir = workspaceDir ?? process.cwd();
+    this.options = {
+      includeCredentials: false,
+      includeMemoryDatabases: true,
+      redactSecrets: true,
+      ...options,
+    };
   }
 
   async detect(): Promise<boolean> {
     // Detect by looking for characteristic files
-    const markers = ['SOUL.md', 'memory.md', 'AGENTS.md', 'memory/'];
+    const markers = ['SOUL.md', 'memory.md', 'AGENTS.md', 'memory/', 'MEMORY.md'];
     for (const marker of markers) {
       if (existsSync(join(this.workspaceDir, marker))) {
         return true;
       }
     }
+    // Also check for OpenClaw config dir
+    const configDir = this.findOpenClawConfigDir();
+    if (configDir) return true;
+    
     return false;
   }
 
   async extract(): Promise<Snapshot> {
     this.warnings = [];
 
+    // Workspace content
     const personality = await this.readIdentity();
     const memoryEntries = await this.readMemory();
     const conversations = await this.readConversations();
@@ -95,6 +173,9 @@ export class ClawdbotAdapter implements Adapter {
     const extensions = await this.readExtensions();
     const configEntries = await this.readConfigFiles();
     const knowledge = await this.buildKnowledgeIndex(skills, scripts);
+
+    // NEW: OpenClaw runtime state
+    const openclawState = await this.readOpenClawState();
 
     const snapshotId = generateSnapshotId();
     const now = new Date().toISOString();
@@ -105,6 +186,12 @@ export class ClawdbotAdapter implements Adapter {
         console.warn(`  ⚠ ${w}`);
       }
     }
+
+    // Merge OpenClaw state into config
+    const fullConfig: Record<string, unknown> = {
+      ...configEntries,
+      _openclaw: openclawState,
+    };
 
     const snapshot: Snapshot = {
       manifest: {
@@ -118,7 +205,7 @@ export class ClawdbotAdapter implements Adapter {
       },
       identity: {
         personality,
-        config: configEntries,
+        config: fullConfig,
         tools: [],
         skills,
         scripts,
@@ -165,6 +252,27 @@ export class ClawdbotAdapter implements Adapter {
             description: 'Restore extension configs',
             target: 'extensions/',
           },
+          {
+            type: 'file',
+            description: 'Restore OpenClaw gateway config',
+            target: '~/.openclaw/openclaw.json',
+          },
+          {
+            type: 'file',
+            description: 'Restore cron jobs',
+            target: '~/.openclaw/cron/jobs.json',
+          },
+          {
+            type: 'manual',
+            description: 'Re-authenticate channel credentials (Telegram, WhatsApp, etc.)',
+            target: 'credentials/',
+          },
+        ],
+        manualSteps: [
+          'Re-link Telegram bot if credentials were not included',
+          'Re-authenticate WhatsApp session',
+          'Re-pair mobile nodes',
+          'Verify API keys in gateway config',
         ],
       },
     };
@@ -196,35 +304,329 @@ export class ClawdbotAdapter implements Adapter {
       await this.restoreExtensions(snapshot.identity.extensions);
     }
 
-    // Restore config files
+    // Restore config files (excluding _openclaw which needs special handling)
     if (snapshot.identity.config) {
-      await this.restoreConfigFiles(snapshot.identity.config as Record<string, unknown>);
+      const { _openclaw, ...workspaceConfigs } = snapshot.identity.config as Record<string, unknown>;
+      if (Object.keys(workspaceConfigs).length > 0) {
+        await this.restoreConfigFiles(workspaceConfigs);
+      }
+
+      // Restore OpenClaw state
+      if (_openclaw) {
+        await this.restoreOpenClawState(_openclaw as OpenClawState);
+      }
     }
   }
 
   async identify(): Promise<PlatformMeta> {
-    // Try to read version from package.json in the workspace
+    // Try to read version from OpenClaw config or package.json
     let version = this.version;
-    try {
-      const pkg = await readFile(join(this.workspaceDir, 'package.json'), 'utf-8');
-      const parsed = JSON.parse(pkg) as Record<string, unknown>;
-      if (typeof parsed.version === 'string') {
-        version = parsed.version;
+    
+    const configDir = this.findOpenClawConfigDir();
+    if (configDir) {
+      for (const configFile of GATEWAY_CONFIG_FILES) {
+        const configPath = join(configDir, configFile);
+        if (existsSync(configPath)) {
+          try {
+            const content = await readFile(configPath, 'utf-8');
+            const config = JSON.parse(content);
+            if (config.meta?.lastTouchedVersion) {
+              version = config.meta.lastTouchedVersion;
+              break;
+            }
+          } catch { /* ignore */ }
+        }
       }
-    } catch { /* ignore */ }
+    }
 
     return {
-      name: 'Clawdbot',
+      name: 'OpenClaw',
       version,
       exportMethod: 'direct-file-access',
     };
   }
 
+  // ─── OpenClaw Config Directory ─────────────────────────────
+
+  private findOpenClawConfigDir(): string | null {
+    for (const dirName of OPENCLAW_CONFIG_DIRS) {
+      const dirPath = join(homedir(), dirName);
+      if (existsSync(dirPath)) {
+        return dirPath;
+      }
+    }
+    return null;
+  }
+
+  // ─── OpenClaw Runtime State ────────────────────────────────
+
+  private async readOpenClawState(): Promise<OpenClawState> {
+    const state: OpenClawState = {};
+    const configDir = this.findOpenClawConfigDir();
+    
+    if (!configDir) {
+      this.warnings.push('OpenClaw config directory not found (~/.openclaw)');
+      return state;
+    }
+
+    // 1. Gateway config (openclaw.json / moltbot.json / clawdbot.json)
+    for (const configFile of GATEWAY_CONFIG_FILES) {
+      const configPath = join(configDir, configFile);
+      if (existsSync(configPath)) {
+        try {
+          let content = await readFile(configPath, 'utf-8');
+          if (this.options.redactSecrets) {
+            content = this.redactSensitiveData(content);
+          }
+          state.gatewayConfig = content;
+          break;
+        } catch (e) {
+          this.warnings.push(`Failed to read gateway config: ${e}`);
+        }
+      }
+    }
+
+    // 2. Cron jobs
+    const cronPath = join(configDir, 'cron', 'jobs.json');
+    if (existsSync(cronPath)) {
+      try {
+        state.cronJobs = await readFile(cronPath, 'utf-8');
+      } catch (e) {
+        this.warnings.push(`Failed to read cron jobs: ${e}`);
+      }
+    }
+
+    // 3. Device identity
+    const identityDir = join(configDir, 'identity');
+    if (existsSync(identityDir)) {
+      state.deviceIdentity = await this.readDirectoryFiles(identityDir, ['.json']);
+    }
+
+    // 4. Paired nodes
+    const nodesDir = join(configDir, 'nodes');
+    if (existsSync(nodesDir)) {
+      state.pairedNodes = await this.readDirectoryFiles(nodesDir, ['.json']);
+    }
+
+    // 5. Credentials (only if explicitly requested)
+    if (this.options.includeCredentials) {
+      const credentialsDir = join(configDir, 'credentials');
+      if (existsSync(credentialsDir)) {
+        state.credentials = await this.readDirectoryFiles(credentialsDir, ['.json']);
+        // Also capture WhatsApp session if present
+        const whatsappDir = join(credentialsDir, 'whatsapp');
+        if (existsSync(whatsappDir)) {
+          const waFiles = await this.readDirectoryFiles(whatsappDir, ['.json', '.txt']);
+          for (const [name, content] of Object.entries(waFiles)) {
+            state.credentials![`whatsapp/${name}`] = content;
+          }
+        }
+      }
+    } else {
+      this.warnings.push('Credentials excluded (use --include-credentials to include)');
+    }
+
+    // 6. Channel state (telegram offsets, etc.)
+    const telegramDir = join(configDir, 'telegram');
+    if (existsSync(telegramDir)) {
+      state.channelState = await this.readDirectoryFiles(telegramDir, ['.json']);
+    }
+
+    // 7. Memory databases (SQLite files)
+    if (this.options.includeMemoryDatabases) {
+      const memoryDir = join(configDir, 'memory');
+      if (existsSync(memoryDir)) {
+        state.memoryDatabases = await this.indexMemoryDatabases(memoryDir);
+      }
+    } else {
+      this.warnings.push('Memory databases excluded (use --include-memory-dbs to include)');
+    }
+
+    return state;
+  }
+
+  private async readDirectoryFiles(dir: string, extensions: string[]): Promise<Record<string, string>> {
+    const files: Record<string, string> = {};
+    try {
+      const entries = await readdir(dir);
+      for (const entry of entries) {
+        const ext = extname(entry).toLowerCase();
+        if (!extensions.includes(ext)) continue;
+        
+        const filePath = join(dir, entry);
+        const fileStat = await stat(filePath).catch(() => null);
+        if (!fileStat?.isFile()) continue;
+        if (fileStat.size > MAX_TEXT_FILE_SIZE) {
+          this.warnings.push(`Skipped ${entry} (too large: ${(fileStat.size / 1024 / 1024).toFixed(1)}MB)`);
+          continue;
+        }
+
+        try {
+          files[entry] = await readFile(filePath, 'utf-8');
+        } catch { /* skip unreadable */ }
+      }
+    } catch { /* directory not readable */ }
+    return files;
+  }
+
+  private async indexMemoryDatabases(memoryDir: string): Promise<MemoryDatabaseEntry[]> {
+    const databases: MemoryDatabaseEntry[] = [];
+    try {
+      const entries = await readdir(memoryDir);
+      for (const entry of entries) {
+        if (!entry.endsWith('.sqlite')) continue;
+        
+        const filePath = join(memoryDir, entry);
+        const fileStat = await stat(filePath).catch(() => null);
+        if (!fileStat?.isFile()) continue;
+
+        if (fileStat.size > MAX_BINARY_FILE_SIZE) {
+          this.warnings.push(`Memory DB ${entry} too large (${(fileStat.size / 1024 / 1024).toFixed(1)}MB > 100MB limit)`);
+          continue;
+        }
+
+        // Extract agent ID from filename (e.g., "main.sqlite" -> "main")
+        const agentId = entry.replace('.sqlite', '');
+
+        // Compute checksum
+        const buffer = await readFile(filePath);
+        const checksum = computeChecksum(buffer);
+
+        databases.push({
+          agentId,
+          archivePath: `memory-dbs/${entry}`,
+          sourcePath: filePath,
+          size: fileStat.size,
+          checksum,
+        });
+      }
+    } catch { /* memory dir not readable */ }
+    return databases;
+  }
+
+  private redactSensitiveData(jsonContent: string): string {
+    try {
+      const obj = JSON.parse(jsonContent);
+      const redacted = this.redactObject(obj);
+      return JSON.stringify(redacted, null, 2);
+    } catch {
+      // If not valid JSON, do simple regex replacement
+      let content = jsonContent;
+      for (const field of SENSITIVE_CONFIG_FIELDS) {
+        // Match "apiKey": "value" patterns
+        const regex = new RegExp(`("${field}"\\s*:\\s*)"[^"]*"`, 'gi');
+        content = content.replace(regex, '$1"[REDACTED]"');
+      }
+      return content;
+    }
+  }
+
+  private redactObject(obj: unknown): unknown {
+    if (obj === null || typeof obj !== 'object') return obj;
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.redactObject(item));
+    }
+
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      const lowerKey = key.toLowerCase();
+      const isSensitive = SENSITIVE_CONFIG_FIELDS.some(field => 
+        lowerKey.includes(field.toLowerCase())
+      );
+      
+      if (isSensitive && typeof value === 'string' && value.length > 0) {
+        result[key] = '[REDACTED]';
+      } else if (typeof value === 'object' && value !== null) {
+        result[key] = this.redactObject(value);
+      } else {
+        result[key] = value;
+      }
+    }
+    return result;
+  }
+
+  private async restoreOpenClawState(state: OpenClawState): Promise<void> {
+    const configDir = this.findOpenClawConfigDir() ?? join(homedir(), '.openclaw');
+    
+    // Ensure config dir exists
+    await mkdir(configDir, { recursive: true });
+
+    // 1. Gateway config
+    if (state.gatewayConfig) {
+      const configPath = join(configDir, 'openclaw.json');
+      await this.backupFile(configPath);
+      await writeFile(configPath, state.gatewayConfig, 'utf-8');
+      console.log('  ✓ Restored gateway config (review API keys!)');
+    }
+
+    // 2. Cron jobs
+    if (state.cronJobs) {
+      const cronDir = join(configDir, 'cron');
+      await mkdir(cronDir, { recursive: true });
+      const cronPath = join(cronDir, 'jobs.json');
+      await this.backupFile(cronPath);
+      await writeFile(cronPath, state.cronJobs, 'utf-8');
+      console.log('  ✓ Restored cron jobs');
+    }
+
+    // 3. Device identity
+    if (state.deviceIdentity) {
+      const identityDir = join(configDir, 'identity');
+      await mkdir(identityDir, { recursive: true });
+      for (const [filename, content] of Object.entries(state.deviceIdentity)) {
+        const filePath = join(identityDir, filename);
+        await this.backupFile(filePath);
+        await writeFile(filePath, content, 'utf-8');
+      }
+      console.log('  ✓ Restored device identity');
+    }
+
+    // 4. Paired nodes
+    if (state.pairedNodes) {
+      const nodesDir = join(configDir, 'nodes');
+      await mkdir(nodesDir, { recursive: true });
+      for (const [filename, content] of Object.entries(state.pairedNodes)) {
+        const filePath = join(nodesDir, filename);
+        await this.backupFile(filePath);
+        await writeFile(filePath, content, 'utf-8');
+      }
+      console.log('  ✓ Restored paired nodes');
+    }
+
+    // 5. Credentials (if present)
+    if (state.credentials) {
+      const credentialsDir = join(configDir, 'credentials');
+      await mkdir(credentialsDir, { recursive: true });
+      for (const [filename, content] of Object.entries(state.credentials)) {
+        const filePath = join(credentialsDir, filename);
+        await mkdir(dirname(filePath), { recursive: true });
+        await this.backupFile(filePath);
+        await writeFile(filePath, content, 'utf-8');
+      }
+      console.log('  ✓ Restored credentials');
+    }
+
+    // 6. Channel state
+    if (state.channelState) {
+      const telegramDir = join(configDir, 'telegram');
+      await mkdir(telegramDir, { recursive: true });
+      for (const [filename, content] of Object.entries(state.channelState)) {
+        const filePath = join(telegramDir, filename);
+        await this.backupFile(filePath);
+        await writeFile(filePath, content, 'utf-8');
+      }
+      console.log('  ✓ Restored channel state');
+    }
+
+    // 7. Memory databases (need special binary handling in snapshot.ts)
+    if (state.memoryDatabases?.length) {
+      console.log(`  ℹ ${state.memoryDatabases.length} memory database(s) indexed (restore via binary extract)`);
+    }
+  }
+
   // ─── Private helpers ─────────────────────────────────────
 
-  /**
-   * Check if a file should be skipped (binary or too large).
-   */
   private isBinary(filePath: string): boolean {
     const ext = extname(filePath).toLowerCase();
     const base = filePath.split('/').pop() ?? '';
@@ -234,7 +636,7 @@ export class ClawdbotAdapter implements Adapter {
   private async checkFileSize(filePath: string): Promise<boolean> {
     try {
       const s = await stat(filePath);
-      if (s.size > MAX_FILE_SIZE) {
+      if (s.size > MAX_TEXT_FILE_SIZE) {
         this.warnings.push(`Skipped ${filePath} (${(s.size / 1024 / 1024).toFixed(1)}MB > 1MB limit)`);
         return false;
       }
@@ -321,13 +723,23 @@ export class ClawdbotAdapter implements Adapter {
   private async readConversations(): Promise<ConversationMeta[]> {
     const conversations: ConversationMeta[] = [];
 
-    // Look for conversation logs in ~/.clawdbot/agents/*/sessions/*.jsonl
-    const agentsDir = join(homedir(), '.clawdbot', 'agents');
+    // Look for conversation logs in ~/.openclaw/agents/*/sessions/*.jsonl
+    // Also check legacy paths: ~/.moltbot, ~/.clawdbot
+    const configDir = this.findOpenClawConfigDir();
+    if (!configDir) return conversations;
+
+    const agentsDir = join(configDir, 'agents');
     if (!existsSync(agentsDir)) return conversations;
 
     try {
       const agents = await readdir(agentsDir);
-      for (const agent of agents) {
+      
+      // Filter to specific agent if requested
+      const targetAgents = this.options.agentId 
+        ? agents.filter(a => a === this.options.agentId)
+        : agents;
+
+      for (const agent of targetAgents) {
         const sessionsDir = join(agentsDir, agent, 'sessions');
         if (!existsSync(sessionsDir)) continue;
 
@@ -343,7 +755,7 @@ export class ClawdbotAdapter implements Adapter {
 
             // Count lines (messages) without loading full content
             let messageCount = 0;
-            if (fileStat.size <= MAX_FILE_SIZE) {
+            if (fileStat.size <= MAX_TEXT_FILE_SIZE) {
               const content = await readFile(sessionPath, 'utf-8');
               messageCount = content.split('\n').filter(l => l.trim()).length;
             } else {
@@ -370,9 +782,6 @@ export class ClawdbotAdapter implements Adapter {
     return conversations;
   }
 
-  /**
-   * Read skills/ directory — capture SKILL.md and scripts/ for each skill.
-   */
   private async readSkills(): Promise<SkillEntry[]> {
     const skills: SkillEntry[] = [];
     const skillsDir = join(this.workspaceDir, 'skills');
@@ -406,7 +815,6 @@ export class ClawdbotAdapter implements Adapter {
           if (!fStat?.isFile()) continue;
           if (this.isBinary(fPath)) continue;
 
-          // Capture config-like files: .json, .yaml, .yml, .toml, .md, .txt, .sh, .py, .ts, .js
           const ext = extname(f).toLowerCase();
           const captureExts = new Set(['.json', '.yaml', '.yml', '.toml', '.md', '.txt', '.sh', '.py', '.ts', '.js', '.env']);
           if (!captureExts.has(ext)) continue;
@@ -441,9 +849,6 @@ export class ClawdbotAdapter implements Adapter {
     return skills;
   }
 
-  /**
-   * Read personal-scripts/ and personal-scripts/cron-wrappers/
-   */
   private async readScripts(): Promise<ScriptEntry[]> {
     const scripts: ScriptEntry[] = [];
     const scriptsDir = join(this.workspaceDir, 'personal-scripts');
@@ -466,9 +871,6 @@ export class ClawdbotAdapter implements Adapter {
     return scripts;
   }
 
-  /**
-   * Read extensions/ directory configs (skip node_modules and binary files).
-   */
   private async readExtensions(): Promise<ExtensionEntry[]> {
     const extensions: ExtensionEntry[] = [];
     const extDir = join(this.workspaceDir, 'extensions');
@@ -483,7 +885,6 @@ export class ClawdbotAdapter implements Adapter {
 
         const entry: ExtensionEntry = { name: extName, configs: {} };
 
-        // Only capture config-like files (not source code or node_modules)
         const configExts = new Set(['.json', '.yaml', '.yml', '.toml', '.md', '.env', '.env.example']);
         const files = await readdir(extPath).catch(() => []);
         for (const f of files) {
@@ -512,9 +913,6 @@ export class ClawdbotAdapter implements Adapter {
     return extensions;
   }
 
-  /**
-   * Read config files from workspace root.
-   */
   private async readConfigFiles(): Promise<Record<string, unknown> | undefined> {
     const configs: Record<string, string> = {};
 
@@ -528,7 +926,6 @@ export class ClawdbotAdapter implements Adapter {
       }
     }
 
-    // Also check .savestate/agent-config.json
     const agentConfigPath = join(this.workspaceDir, '.savestate', 'agent-config.json');
     if (existsSync(agentConfigPath)) {
       const content = await this.safeReadFile(agentConfigPath);
@@ -540,9 +937,6 @@ export class ClawdbotAdapter implements Adapter {
     return Object.keys(configs).length > 0 ? configs : undefined;
   }
 
-  /**
-   * Build knowledge documents index from skills and scripts.
-   */
   private async buildKnowledgeIndex(
     skills: SkillEntry[],
     scripts: ScriptEntry[],
@@ -578,25 +972,13 @@ export class ClawdbotAdapter implements Adapter {
     return docs;
   }
 
-  private async readJsonSafe(path: string): Promise<Record<string, unknown> | undefined> {
-    try {
-      const content = await readFile(path, 'utf-8');
-      return JSON.parse(content) as Record<string, unknown>;
-    } catch {
-      return undefined;
-    }
-  }
-
-  /**
-   * Walk a directory recursively and return file paths matching optional extensions.
-   */
   private async walkDir(dir: string, extensions?: string[]): Promise<string[]> {
     const results: string[] = [];
     const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
 
     for (const entry of entries) {
       if (SKIP_DIRS.has(entry.name)) continue;
-      if (entry.name.startsWith('.')) continue; // Skip hidden files/dirs
+      if (entry.name.startsWith('.')) continue;
 
       const fullPath = join(dir, entry.name);
       if (entry.isDirectory()) {
@@ -617,29 +999,17 @@ export class ClawdbotAdapter implements Adapter {
 
   // ─── Restore helpers ──────────────────────────────────────
 
-  /**
-   * Parse concatenated personality back into individual files and write them.
-   * Files are joined with `--- FILENAME ---` markers.
-   */
   private async restoreIdentity(personality: string): Promise<void> {
     const files = this.parsePersonality(personality);
 
     for (const [filename, content] of files) {
       const targetPath = join(this.workspaceDir, filename);
-
-      // Backup existing file
       await this.backupFile(targetPath);
-
-      // Write restored content
       await mkdir(dirname(targetPath), { recursive: true });
       await writeFile(targetPath, content, 'utf-8');
     }
   }
 
-  /**
-   * Parse the concatenated personality string into individual files.
-   * Format: `--- FILENAME ---\ncontent\n\n--- NEXTFILE ---\ncontent`
-   */
   private parsePersonality(personality: string): Map<string, string> {
     const files = new Map<string, string>();
     const regex = /^--- (.+?) ---$/gm;
@@ -647,11 +1017,10 @@ export class ClawdbotAdapter implements Adapter {
 
     for (let i = 0; i < matches.length; i++) {
       const filename = matches[i][1];
-      const startIdx = matches[i].index! + matches[i][0].length + 1; // +1 for newline
+      const startIdx = matches[i].index! + matches[i][0].length + 1;
       const endIdx = i + 1 < matches.length ? matches[i + 1].index! : personality.length;
 
       let content = personality.slice(startIdx, endIdx);
-      // Trim trailing newlines between sections (but keep content intact)
       content = content.replace(/\n\n$/, '\n');
       if (!content.endsWith('\n')) content += '\n';
 
@@ -661,27 +1030,15 @@ export class ClawdbotAdapter implements Adapter {
     return files;
   }
 
-  /**
-   * Restore memory entries back to their source files.
-   */
   private async restoreMemory(entries: MemoryEntry[]): Promise<void> {
     for (const entry of entries) {
       const targetPath = join(this.workspaceDir, entry.source);
-
-      // Backup existing file
       await this.backupFile(targetPath);
-
-      // Ensure directory exists
       await mkdir(dirname(targetPath), { recursive: true });
-
-      // Write restored content
       await writeFile(targetPath, entry.content, 'utf-8');
     }
   }
 
-  /**
-   * Restore skills back to skills/ directory.
-   */
   private async restoreSkills(skills: SkillEntry[]): Promise<void> {
     for (const skill of skills) {
       const skillDir = join(this.workspaceDir, 'skills', skill.name);
@@ -696,9 +1053,6 @@ export class ClawdbotAdapter implements Adapter {
     }
   }
 
-  /**
-   * Restore personal scripts.
-   */
   private async restoreScripts(scripts: ScriptEntry[]): Promise<void> {
     for (const script of scripts) {
       const targetPath = join(this.workspaceDir, script.path);
@@ -708,9 +1062,6 @@ export class ClawdbotAdapter implements Adapter {
     }
   }
 
-  /**
-   * Restore extension configs.
-   */
   private async restoreExtensions(extensions: ExtensionEntry[]): Promise<void> {
     for (const ext of extensions) {
       const extDir = join(this.workspaceDir, 'extensions', ext.name);
@@ -724,9 +1075,6 @@ export class ClawdbotAdapter implements Adapter {
     }
   }
 
-  /**
-   * Restore config files to workspace root.
-   */
   private async restoreConfigFiles(configs: Record<string, unknown>): Promise<void> {
     for (const [file, value] of Object.entries(configs)) {
       if (typeof value !== 'string') continue;
@@ -737,16 +1085,13 @@ export class ClawdbotAdapter implements Adapter {
     }
   }
 
-  /**
-   * Create a .bak backup of an existing file before overwriting.
-   */
   private async backupFile(filePath: string): Promise<void> {
     if (existsSync(filePath)) {
       const backupPath = filePath + '.bak';
       try {
         await rename(filePath, backupPath);
       } catch {
-        // If rename fails (e.g., permissions), continue without backup
+        // If rename fails, continue without backup
       }
     }
   }
