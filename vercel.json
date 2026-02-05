@@ -1,6 +1,10 @@
 {
   "version": 2,
   "outputDirectory": "site",
+  "redirects": [
+    { "source": "/pricing", "destination": "/#pricing", "permanent": false },
+    { "source": "/login", "destination": "/dashboard", "permanent": false }
+  ],
   "functions": {
     "api/**/*.ts": {
       "runtime": "@vercel/node@5.5.28"
