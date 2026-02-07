@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>88% of Organizations Had AI Agent Security Incidents Last Year — Is Your Agent Recoverable? — SaveState</title>
+<meta name="description" content="The State of AI Agent Security 2026 Report reveals 88% of organizations experienced AI agent security incidents. If you can't see what your agents are doing, you certainly can't recover what they broke.">
+<link rel="icon" type="image/png" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --navy: #1a1a2e;
+  --blue: #03C1DF;
+  --blue-light: #9BCDE4;
+  --blue-dim: #025A6A;
+  --bg: #06060c;
+  --bg-card: #0d0d18;
+  --bg-code: #0a0a14;
+  --text: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --border: #1e293b;
+  --glow: rgba(3, 193, 223, 0.15);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', 'SF Mono', monospace;
+}
+
+html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  min-height: 100vh;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(3, 193, 223, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 24px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Nav */
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 16px 0;
+  background: rgba(6, 6, 12, 0.8);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+}
+
+nav .container {
+  max-width: 1120px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.nav-wordmark {
+  font-size: 20px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--blue), var(--blue-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  list-style: none;
+}
+
+.nav-links a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.nav-links a:hover { color: var(--text); }
+
+.btn-nav {
+  background: var(--blue);
+  color: var(--bg) !important;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.btn-nav:hover { background: var(--blue-light); }
+
+/* Article */
+article {
+  padding: 120px 0 80px;
+}
+
+.article-header {
+  margin-bottom: 48px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--border);
+}
+
+.article-header .date {
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.article-header h1 {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 16px;
+}
+
+.article-header .summary {
+  font-size: 18px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.article-content h2 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 48px 0 20px;
+  color: var(--text);
+}
+
+.article-content p {
+  margin-bottom: 20px;
+  color: var(--text-muted);
+}
+
+.article-content a {
+  color: var(--blue);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.article-content ul, .article-content ol {
+  margin: 20px 0 20px 24px;
+  color: var(--text-muted);
+}
+
+.article-content li {
+  margin-bottom: 12px;
+}
+
+.article-content strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.article-content pre {
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 20px;
+  overflow-x: auto;
+  margin-bottom: 24px;
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.article-content code {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  background: var(--bg-code);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--blue-light);
+}
+
+.article-content pre code {
+  background: none;
+  padding: 0;
+  color: var(--text);
+}
+
+.article-content blockquote {
+  border-left: 3px solid var(--blue);
+  padding-left: 20px;
+  margin: 24px 0;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.stat-callout {
+  background: linear-gradient(135deg, rgba(3, 193, 223, 0.1) 0%, rgba(3, 193, 223, 0.05) 100%);
+  border: 1px solid var(--blue-dim);
+  border-radius: var(--radius);
+  padding: 32px;
+  margin: 32px 0;
+  text-align: center;
+}
+
+.stat-callout .number {
+  font-size: 64px;
+  font-weight: 800;
+  color: var(--blue);
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.stat-callout .label {
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+/* Back link */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  margin-bottom: 32px;
+  transition: color 0.2s;
+}
+
+.back-link:hover { color: var(--text); }
+
+/* Footer */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 40px 0;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+footer a { color: var(--text-muted); }
+
+@media (max-width: 600px) {
+  .nav-links { display: none; }
+  .article-header h1 { font-size: 28px; }
+  .article-content h2 { font-size: 22px; }
+  .stat-callout .number { font-size: 48px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="container">
+    <a href="/" class="nav-logo">
+      <img src="/logo.png" alt="SaveState" width="32" height="32" style="border-radius: 4px;">
+      <span class="nav-wordmark">SaveState</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="/#features">Features</a></li>
+      <li><a href="/#pricing">Pricing</a></li>
+      <li><a href="/blog">Blog</a></li>
+      <li><a href="https://github.com/savestatedev/savestate" target="_blank">GitHub</a></li>
+      <li><a href="https://www.npmjs.com/package/@savestate/cli" target="_blank" class="btn-nav">Get Started</a></li>
+    </ul>
+  </div>
+</nav>
+
+<article>
+  <div class="container">
+    <a href="/blog" class="back-link">← Back to Blog</a>
+    
+    <header class="article-header">
+      <div class="date">February 7, 2026</div>
+      <h1>88% of Organizations Had AI Agent Security Incidents Last Year — Is Your Agent Recoverable?</h1>
+      <p class="summary">The State of AI Agent Security 2026 Report just dropped. If you can't see what your agents are doing, you certainly can't recover what they broke.</p>
+    </header>
+
+    <div class="article-content">
+      <p>A chilling statistic landed on my desk this week.</p>
+
+      <div class="stat-callout">
+        <div class="number">88%</div>
+        <div class="label">of organizations experienced AI agent security incidents last year</div>
+      </div>
+
+      <p>The finding comes from Gravitee's <a href="https://www.gravitee.io/blog/state-of-ai-agent-security-2026-report-when-adoption-outpaces-control">State of AI Agent Security 2026 Report</a>, released just three days ago. It represents the first comprehensive study of AI agent security incidents across enterprise deployments.</p>
+
+      <p>This isn't hypothetical risk. It's happening right now, at scale.</p>
+
+      <h2>The Shadow AI Problem</h2>
+
+      <p>The report reveals something even more alarming than the incident rate: <strong>organizations have lost visibility into their own agent deployments.</strong></p>
+
+      <ul>
+        <li><strong>Only 47.1%</strong> of AI agents are actively monitored</li>
+        <li><strong>85.6%</strong> were launched without full IT/security approval</li>
+        <li><strong>Only 14.4%</strong> have complete security sign-off</li>
+      </ul>
+
+      <p>Agents are proliferating faster than governance can keep up. Teams are spinning up AI assistants for sales, support, coding, and operations—each accumulating context, making decisions, and accessing systems. Most of these agents exist in a security blind spot.</p>
+
+      <p>In healthcare, the numbers are even worse: <strong>92.7% incident rate</strong>. Nearly every healthcare organization using AI agents experienced a security incident.</p>
+
+      <h2>The Identity Crisis</h2>
+
+      <p>Here's where it gets interesting for developers.</p>
+
+      <p>The report found that only <strong>21.9% of organizations</strong> treat their AI agents as independent identity-bearing entities. The rest? They're using shared credentials, team API keys, or—in 45.6% of cases—literally sharing API keys across multiple agents.</p>
+
+      <p>Without proper identity, you can't:</p>
+
+      <ul>
+        <li>Audit what any specific agent did</li>
+        <li>Roll back a single agent's actions</li>
+        <li>Isolate compromised agents</li>
+        <li>Track the chain of decisions that led to an incident</li>
+      </ul>
+
+      <p>When something breaks—and the 88% stat proves it will—you're flying blind.</p>
+
+      <h2>Agents Spawning Agents</h2>
+
+      <p>Perhaps the most concerning finding: <strong>25.5% of deployed agents can create and task other agents.</strong></p>
+
+      <p>That's right—one in four enterprise AI agents can spin up sub-agents. The chain of command becomes impossible to audit without proper state management. When Agent A spawns Agent B which spawns Agent C, and somewhere along the line something goes wrong... good luck tracing the failure.</p>
+
+      <p>This isn't a theoretical concern. It's the logical endpoint of agentic architectures. As agents become more autonomous, they'll increasingly orchestrate other agents. The question is whether your infrastructure can handle the complexity.</p>
+
+      <h2>The OpenAI Frontier Announcement</h2>
+
+      <p>Two days after this report dropped, OpenAI announced <a href="https://fortune.com/2026/02/05/openai-frontier-ai-agent-platform-enterprises-challenges-saas-salesforce-workday/">Frontier</a>—their enterprise AI agent platform targeting Fortune 500 companies. Uber, Intuit, and State Farm are already on board.</p>
+
+      <p>The timing isn't coincidental. The big players see what's coming:</p>
+
+      <ul>
+        <li><strong>OpenAI Frontier</strong> — Enterprise agent orchestration</li>
+        <li><strong>Anthropic Cowork</strong> — Claude-based workplace agents</li>
+        <li><strong>Salesforce Agentforce</strong> — CRM-integrated agents</li>
+        <li><strong>Microsoft Copilot</strong> — Office suite integration</li>
+      </ul>
+
+      <p>Each platform wants to own your agent layer. Each creates its own context, its own memory, its own decision history. And each is, to varying degrees, a black box.</p>
+
+      <h2>The Missing Safety Net</h2>
+
+      <p>Here's what struck me reading this report: everyone's talking about <em>preventing</em> incidents, but almost no one is talking about <em>recovering</em> from them.</p>
+
+      <p>When 88% of organizations are experiencing incidents, prevention has already failed. The question becomes: <strong>can you recover?</strong></p>
+
+      <p>Traditional backup doesn't help here. Agent context isn't regular data:</p>
+
+      <ul>
+        <li>It's <strong>distributed</strong> across vector DBs, conversation history, custom instructions</li>
+        <li>It's <strong>opaque</strong>—you can't eyeball poisoned embeddings</li>
+        <li>It's <strong>semantic</strong>—corruption affects meaning, not just bytes</li>
+        <li>It's <strong>platform-specific</strong>—each agent type stores state differently</li>
+      </ul>
+
+      <p>This is exactly why we built SaveState.</p>
+
+      <pre><code># Snapshot before risky operations
+savestate snapshot --name "pre-integration"
+
+# Something went wrong? Check the diff
+savestate diff pre-integration latest
+
+# Roll back to known-good state
+savestate restore pre-integration</code></pre>
+
+      <p>When your agent's context can be silently corrupted—or when you need to restore service after an incident—you need the ability to roll back instantly.</p>
+
+      <h2>Compliance Is Coming</h2>
+
+      <p>One more thing from the report that should keep you up at night: the EU AI Act is now in effect, and it won't accept "we didn't know what the agent did" as an answer.</p>
+
+      <p>If your agent makes a decision that harms someone—a medical recommendation, a financial trade, a hiring decision—you'll need to show:</p>
+
+      <ul>
+        <li>What data the agent had at the time</li>
+        <li>How it reached its conclusion</li>
+        <li>Whether that state was compromised</li>
+        <li>What you've done to prevent recurrence</li>
+      </ul>
+
+      <p>Without versioned state snapshots, you're reconstructing from fragments. With SaveState, you have the audit trail.</p>
+
+      <h2>The New Baseline</h2>
+
+      <p>The 88% incident rate changes the security calculus. Agent backups aren't just about convenience—they're a security control.</p>
+
+      <p>Here's the new baseline:</p>
+
+      <ul>
+        <li><strong>Regular snapshots</strong> — Treat agent checkpoints like database backups</li>
+        <li><strong>Pre/post snapshots</strong> — Snapshot before processing untrusted inputs</li>
+        <li><strong>Cross-platform portability</strong> — Don't let vendor lock-in become a security risk</li>
+        <li><strong>Incident response</strong> — Include agent rollback in your security playbooks</li>
+      </ul>
+
+      <p>Your agents will fail. The data proves it. Make sure you can recover.</p>
+
+      <pre><code># Get started in 30 seconds
+npm install -g @savestate/cli
+savestate init
+savestate snapshot</code></pre>
+
+      <p><em>Get started at <a href="https://savestate.dev">savestate.dev</a> — free tier available, no credit card required.</em></p>
+    </div>
+  </div>
+</article>
+
+<footer>
+  <div class="container">
+    <p>© 2026 SaveState. <a href="https://github.com/savestatedev/savestate">Open Source</a> under MIT License.</p>
+  </div>
+</footer>
+
+</body>
+</html>
