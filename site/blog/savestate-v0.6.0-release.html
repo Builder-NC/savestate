@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SaveState v0.6.0: Migration Wizard, MCP, and GitHub Actions — SaveState</title>
+<meta name="description" content="SaveState v0.6.0 brings automated migration with smart framework detection, Claude Code MCP integration, and production-ready GitHub Actions for CI/CD workflows.">
+<link rel="icon" type="image/png" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --navy: #1a1a2e;
+  --blue: #03C1DF;
+  --blue-light: #9BCDE4;
+  --blue-dim: #025A6A;
+  --bg: #06060c;
+  --bg-card: #0d0d18;
+  --bg-code: #0a0a14;
+  --text: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --border: #1e293b;
+  --glow: rgba(3, 193, 223, 0.15);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', 'SF Mono', monospace;
+}
+
+html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  min-height: 100vh;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(3, 193, 223, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 24px;
+  position: relative;
+  z-index: 1;
+}
+
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 16px 0;
+  background: rgba(6, 6, 12, 0.8);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+}
+
+nav .container {
+  max-width: 1120px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.nav-wordmark {
+  font-size: 18px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--text) 0%, var(--blue-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  list-style: none;
+}
+
+.nav-links a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.nav-links a:hover { color: var(--text); }
+
+.nav-links .btn-nav {
+  background: var(--blue);
+  color: var(--bg);
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+article {
+  padding-top: 120px;
+  padding-bottom: 80px;
+}
+
+.article-header {
+  margin-bottom: 48px;
+}
+
+.article-header .date {
+  font-size: 14px;
+  color: var(--blue);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 16px;
+}
+
+.article-header h1 {
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin-bottom: 24px;
+}
+
+.article-header .summary {
+  font-size: 20px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.article-content {
+  font-size: 17px;
+  line-height: 1.8;
+}
+
+.article-content h2 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: 48px;
+  margin-bottom: 20px;
+  color: var(--text);
+}
+
+.article-content h3 {
+  font-size: 22px;
+  font-weight: 600;
+  margin-top: 36px;
+  margin-bottom: 16px;
+}
+
+.article-content p {
+  margin-bottom: 20px;
+  color: var(--text-muted);
+}
+
+.article-content strong { color: var(--text); }
+
+.article-content a {
+  color: var(--blue);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.article-content a:hover {
+  border-bottom-color: var(--blue);
+}
+
+.article-content ul, .article-content ol {
+  margin-bottom: 20px;
+  padding-left: 24px;
+  color: var(--text-muted);
+}
+
+.article-content li {
+  margin-bottom: 8px;
+}
+
+.article-content pre {
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 20px;
+  overflow-x: auto;
+  margin-bottom: 24px;
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.article-content code {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  background: var(--bg-code);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--blue-light);
+}
+
+.article-content pre code {
+  background: none;
+  padding: 0;
+  color: var(--text);
+}
+
+.article-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+  font-size: 15px;
+}
+
+.article-content th, .article-content td {
+  padding: 12px 16px;
+  text-align: left;
+  border: 1px solid var(--border);
+}
+
+.article-content th {
+  background: var(--bg-code);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.article-content td {
+  color: var(--text-muted);
+}
+
+.article-content blockquote {
+  border-left: 3px solid var(--blue);
+  padding-left: 20px;
+  margin: 24px 0;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  margin-bottom: 32px;
+  transition: color 0.2s;
+}
+
+.back-link:hover { color: var(--text); }
+
+footer {
+  border-top: 1px solid var(--border);
+  padding: 40px 0;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+footer a { color: var(--text-muted); }
+
+@media (max-width: 600px) {
+  .nav-links { display: none; }
+  .article-header h1 { font-size: 28px; }
+  .article-content h2 { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="container">
+    <a href="/" class="nav-logo">
+      <img src="/logo.png" alt="SaveState" width="32" height="32" style="border-radius: 4px;">
+      <span class="nav-wordmark">SaveState</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="/#features">Features</a></li>
+      <li><a href="/#pricing">Pricing</a></li>
+      <li><a href="/blog">Blog</a></li>
+      <li><a href="https://github.com/savestatedev/savestate" target="_blank">GitHub</a></li>
+      <li><a href="https://www.npmjs.com/package/@savestate/cli" target="_blank" class="btn-nav">Get Started</a></li>
+    </ul>
+  </div>
+</nav>
+
+<article>
+  <div class="container">
+    <a href="/blog" class="back-link">← Back to Blog</a>
+    
+    <header class="article-header">
+      <div class="date">February 8, 2026</div>
+      <h1>SaveState v0.6.0: Migration Wizard, MCP, and GitHub Actions</h1>
+      <p class="summary">This release brings three major features that make AI agent state truly portable and automatable: smart migrations, Claude Code integration, and CI/CD workflows.</p>
+    </header>
+
+    <div class="article-content">
+      <p>We've been heads-down for the past few weeks building what we think are the most requested features since launch. Today, <strong>SaveState v0.6.0</strong> is live — and it's a big one.</p>
+
+      <p>Three headline features, each solving a real pain point developers face when working with AI agents:</p>
+
+      <h2>🧙 Migration Wizard</h2>
+
+      <p>Switching between AI platforms shouldn't mean starting from scratch. The new <strong>Migration Wizard</strong> automatically detects your project's framework and migrates your agent state between platforms.</p>
+
+      <p>The architecture uses smart framework detection to understand your project structure — whether it's a Next.js app, Python backend, or monorepo — and transforms your agent configuration, memory, and conversation history into the target format.</p>
+
+      <p>Moving from ChatGPT to Claude? The wizard handles the translation. Your custom instructions become CLAUDE.md files. Your conversation context maps to the right memory format. No manual copy-paste, no lost context.</p>
+
+      <p>We're rolling this out incrementally. Today it supports our six core adapters, with more sophisticated transformations coming in v0.7.</p>
+
+      <h2>🔌 Claude Code MCP Integration</h2>
+
+      <p>This one's for the Claude Code power users. SaveState now ships with a native <a href="https://modelcontextprotocol.io">Model Context Protocol</a> server, letting you backup and restore directly from your coding session.</p>
+
+      <p>No terminal switching. Just ask Claude to create a backup before a risky refactor, and it handles the rest. The MCP server exposes <code>savestate_snapshot</code>, <code>savestate_restore</code>, <code>savestate_list</code>, and <code>savestate_status</code> as tools Claude can call on your behalf.</p>
+
+      <p>Full setup details in our <a href="/blog/claude-code-mcp-integration.html">MCP integration guide</a>.</p>
+
+      <h2>⚙️ GitHub Actions</h2>
+
+      <p>Production teams need automated backups. The new <strong>GitHub Actions</strong> integration brings SaveState into your CI/CD pipeline with first-class support for backup and restore workflows.</p>
+
+      <p>Here's a complete workflow that backs up your agent state on every push to main:</p>
+
+      <pre><code># .github/workflows/savestate-backup.yml
+name: SaveState Backup
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 0 * * *'  # Daily at midnight
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install SaveState
+        run: npm install -g @savestate/cli
+      
+      - name: Create Backup
+        env:
+          SAVESTATE_PASSPHRASE: ${{ secrets.SAVESTATE_PASSPHRASE }}
+          SAVESTATE_API_KEY: ${{ secrets.SAVESTATE_API_KEY }}
+        run: |
+          savestate snapshot --label "ci-${{ github.sha }}"
+          savestate list --limit 5</code></pre>
+
+      <p>Add a restore job for disaster recovery, and you've got production-grade protection for your agent state. Your AI's knowledge becomes part of your deployment pipeline.</p>
+
+      <h2>What Else?</h2>
+
+      <p>Beyond the big three, v0.6.0 includes documentation improvements, bug fixes, and polish:</p>
+
+      <ul>
+        <li>New blog posts on <a href="/blog/migration-wizard-architecture.html">Migration Wizard architecture</a> and security research</li>
+        <li>CONTRIBUTING.md and issue templates for contributors</li>
+        <li>Fixed responsive layout issues and broken redirects</li>
+        <li>Updated all ClawHub references to clawhub.ai</li>
+      </ul>
+
+      <h2>Get Started</h2>
+
+      <p>Upgrade to v0.6.0:</p>
+
+      <pre><code># npm
+npm install -g @savestate/cli@latest
+
+# Homebrew
+brew upgrade savestate
+
+# Verify
+savestate --version</code></pre>
+
+      <p>Your AI agents are accumulating valuable context every day. Conversations, custom instructions, learned preferences — it all adds up. Don't let a platform switch or a bad deployment wipe it out.</p>
+
+      <p><strong><a href="https://www.npmjs.com/package/@savestate/cli">Try SaveState →</a></strong></p>
+
+      <p><em>Questions or feedback? Open an issue on <a href="https://github.com/savestatedev/savestate">GitHub</a> or email us at hello@savestate.dev.</em></p>
+    </div>
+  </div>
+</article>
+
+<footer>
+  <div class="container">
+    <p>© 2026 SaveState. <a href="https://github.com/savestatedev/savestate">Open Source</a> under MIT License.</p>
+  </div>
+</footer>
+
+</body>
+</html>
