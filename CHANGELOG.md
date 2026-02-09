@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.7.0] - 2026-02-09
+
+### Added
+- **Migration Wizard Core** — New `savestate migrate` command architecture
+- **ChatGPT Extractor** — Extract custom instructions, memories, conversations, files, and GPTs
+- **Claude Loader** — Load migration data into Claude Projects
+- **Transform Rules Engine** — Bidirectional ChatGPT ↔ Claude transformations
+- Checkpoint/resume capability for migrations
+- Rollback support for failed migrations
+- Compatibility report generation
+
+### Security
+- Path traversal protection in file handling
+- Removed hardcoded infrastructure fallbacks
+
+### Changed
+- 159 tests now passing
+
+---
+
 ## [0.5.0] - 2026-02-02
 
 ### 🚀 Full OpenClaw Runtime State Capture
