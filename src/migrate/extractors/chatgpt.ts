@@ -492,15 +492,16 @@ export class ChatGPTExtractor implements Extractor {
           const fileResponse = await this.apiRequest(`/files/${file.id}/content`);
           if (fileResponse.ok) {
             const buffer = Buffer.from(await fileResponse.arrayBuffer());
-            const filePath = join(filesDir, file.filename);
+            const safeFilename = basename(file.filename).replace(/[/\\]/g, '_');
+            const filePath = join(filesDir, safeFilename);
             await writeFile(filePath, buffer);
 
             entries.push({
               id: file.id,
-              filename: file.filename,
-              mimeType: this.guessMimeType(file.filename),
+              filename: safeFilename,
+              mimeType: this.guessMimeType(safeFilename),
               size: file.bytes,
-              path: `files/${file.filename}`,
+              path: `files/${safeFilename}`,
             });
             totalSize += file.bytes;
           }
