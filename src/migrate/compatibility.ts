@@ -35,7 +35,7 @@ interface FeatureCompatibility {
   sourceFeature: string;
   targetPlatforms: Partial<Record<Platform, 'compatible' | 'adapted' | 'incompatible'>>;
   adaptationNote?: string;
-  alternatives?: Record<Platform, string>;
+  alternatives?: Partial<Record<Platform, string>>;
 }
 
 const FEATURE_COMPATIBILITY: FeatureCompatibility[] = [
