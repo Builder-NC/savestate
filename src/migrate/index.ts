@@ -42,5 +42,8 @@ export { getExtractor, registerExtractor, listExtractors, hasExtractor } from '.
 export { getTransformer, registerTransformer, listTransformers, hasTransformer } from './transformers/registry.js';
 export { getLoader, registerLoader, listLoaders, hasLoader } from './loaders/registry.js';
 
+// Loaders (for direct instantiation with custom config)
+export { ClaudeLoader, type ClaudeLoaderConfig } from './loaders/claude.js';
+
 // Platform capabilities (for compatibility checking)
 export { getPlatformCapabilities, PLATFORM_CAPABILITIES } from './capabilities.js';

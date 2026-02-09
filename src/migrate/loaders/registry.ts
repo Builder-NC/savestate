@@ -40,8 +40,10 @@ export function hasLoader(platform: Platform): boolean {
 
 // ─── Register Built-in Loaders ───────────────────────────────
 
-// Claude loader will be registered in #25
-// registerLoader('claude', () => new ClaudeLoader());
+import { ClaudeLoader } from './claude.js';
+
+// Claude loader (#25)
+registerLoader('claude', () => new ClaudeLoader());
 
 // ChatGPT loader will be registered in #30
 // registerLoader('chatgpt', () => new ChatGPTLoader());
