@@ -181,7 +181,7 @@ curl -fsSL https://savestate.dev/install.sh | sh
 - **CLI**: Node.js (TypeScript) — widest ecosystem reach
 - **Encryption**: libsodium (via sodium-native) — proven, audited
 - **Storage**: Abstract backend interface (local, S3-compatible, filesystem)
-- **Cloud Storage**: Cloudflare R2 (bucket: `savestate-backups`, account: `3896f91bc02fe2ec4f45b9e92981e626`)
+- **Cloud Storage**: Cloudflare R2 (configured via environment variables)
 - **Format**: JSON + MessagePack (for binary data) + age encryption
 - **Database**: Neon serverless Postgres (via `@neondatabase/serverless`) on Vercel
 - **API**: Vercel serverless functions (`api/webhook.ts`, `api/account.ts`, `api/lib/db.ts`)
@@ -333,10 +333,9 @@ Stripe account: WithCandor (shared across DBH Ventures startups pending LLC appr
 - **Indexes**: email, api_key, stripe_customer_id
 
 ### Cloudflare R2
-- **Bucket**: `savestate-backups`
-- **Account**: `3896f91bc02fe2ec4f45b9e92981e626`
+- **Bucket**: Configured via `R2_BUCKET` environment variable
+- **Endpoint**: Configured via `R2_ENDPOINT` environment variable
 - **Credentials**: 1Password → "clawdbot skill: cloudflare r2"
-- **First cloud backup**: `ss-2026-01-28T00-52-22-62j057` (479.7 KB)
 
 ### 1Password Access
 - Password in `OP_PASSWORD` env var (from `~/.clawdbot/.env`)

@@ -1,7 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const TWENTY_API_URL = 'https://api.mollified.app/rest';
+const TWENTY_API_URL = process.env.TWENTY_API_URL;
 const TWENTY_API_KEY = process.env.SAVESTATE_TWENTY_API_KEY;
+
+if (!TWENTY_API_URL) {
+  throw new Error('TWENTY_API_URL environment variable is required');
+}
 
 interface LeadPayload {
   email: string;

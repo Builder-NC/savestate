@@ -347,8 +347,8 @@ Database: savestate_db (or similar)
 ### 7.2 Cloudflare R2 Storage
 
 ```
-Bucket: savestate-backups
-Endpoint: 3896f91bc02fe2ec4f45b9e92981e626.r2.cloudflarestorage.com
+Bucket: Configured via R2_BUCKET env var
+Endpoint: Configured via R2_ENDPOINT env var
 ```
 
 - [ ] R2 credentials configured in Vercel
