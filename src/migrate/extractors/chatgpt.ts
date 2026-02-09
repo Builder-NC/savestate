@@ -13,7 +13,7 @@
 
 import { randomBytes, createHash } from 'node:crypto';
 import { mkdir, writeFile, readFile, stat, readdir, access, constants } from 'node:fs/promises';
-import { join, extname } from 'node:path';
+import { join, extname, basename } from 'node:path';
 
 import type {
   Platform,
@@ -698,7 +698,9 @@ export class ChatGPTExtractor implements Extractor {
         gptId: conv.gizmo_id,
       };
 
-      const convPath = join(outputDir, `${conv.id}.json`);
+      // Sanitize conv.id to prevent path traversal
+      const safeConvId = basename(conv.id).replace(/[/\\]/g, '_');
+      const convPath = join(outputDir, `${safeConvId}.json`);
       await writeFile(convPath, JSON.stringify(convData, null, 2));
 
       summaries.push({
@@ -753,7 +755,9 @@ export class ChatGPTExtractor implements Extractor {
         gptId: conv.gizmo_id,
       };
 
-      const convPath = join(outputDir, `${conv.id}.json`);
+      // Sanitize conv.id to prevent path traversal
+      const safeConvId = basename(conv.id).replace(/[/\\]/g, '_');
+      const convPath = join(outputDir, `${safeConvId}.json`);
       await writeFile(convPath, JSON.stringify(convData, null, 2));
 
       summaries.push({
@@ -882,16 +886,18 @@ export class ChatGPTExtractor implements Extractor {
 
         if (stats.isFile()) {
           // Copy file to work directory
+          // Sanitize filename to prevent path traversal attacks
+          const safeFilename = basename(filename);
           const content = await readFile(sourcePath);
-          const destPath = join(filesDir, filename);
+          const destPath = join(filesDir, safeFilename);
           await writeFile(destPath, content);
 
           entries.push({
-            id: createHash('md5').update(filename).digest('hex'),
-            filename,
-            mimeType: this.guessMimeType(filename),
+            id: createHash('md5').update(safeFilename).digest('hex'),
+            filename: safeFilename,
+            mimeType: this.guessMimeType(safeFilename),
             size: stats.size,
-            path: `files/${filename}`,
+            path: `files/${safeFilename}`,
           });
           totalSize += stats.size;
         }
