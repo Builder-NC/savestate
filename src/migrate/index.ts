@@ -28,7 +28,14 @@ export type {
 } from './types.js';
 
 // Orchestrator
-export { MigrationOrchestrator, type MigrationEvent, type MigrationEventHandler } from './orchestrator.js';
+export {
+  MigrationOrchestrator,
+  type MigrationEvent,
+  type MigrationEventHandler,
+  type RollbackAction,
+  type RollbackPlan,
+  type RollbackResult,
+} from './orchestrator.js';
 
 // Registries
 export { getExtractor, registerExtractor, listExtractors, hasExtractor } from './extractors/registry.js';

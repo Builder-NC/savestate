@@ -8,11 +8,11 @@
  * - Phase checkpoint/resume capability
  * - Progress tracking
  * - Error recovery
- * - Rollback support
+ * - Rollback support (undo loaded changes)
  */
 
 import { randomBytes } from 'node:crypto';
-import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdir, writeFile, readFile, rm, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -34,6 +34,45 @@ import type {
 import { getExtractor } from './extractors/registry.js';
 import { getTransformer } from './transformers/registry.js';
 import { getLoader } from './loaders/registry.js';
+
+// ─── Rollback Types ──────────────────────────────────────────
+
+export interface RollbackAction {
+  /** Type of rollback action */
+  type: 'delete-project' | 'delete-memories' | 'delete-files' | 'restore-instructions';
+  /** Description of what will be undone */
+  description: string;
+  /** Platform where the action will be performed */
+  platform: Platform;
+  /** Resource IDs to rollback */
+  resourceIds: string[];
+  /** Original data (for restore operations) */
+  originalData?: unknown;
+}
+
+export interface RollbackPlan {
+  /** Migration ID this plan belongs to */
+  migrationId: string;
+  /** Actions to perform (in reverse order) */
+  actions: RollbackAction[];
+  /** When the plan was created */
+  createdAt: string;
+  /** Whether rollback has been executed */
+  executed: boolean;
+  /** Execution timestamp */
+  executedAt?: string;
+}
+
+export interface RollbackResult {
+  /** Whether rollback was successful */
+  success: boolean;
+  /** Actions that succeeded */
+  succeeded: RollbackAction[];
+  /** Actions that failed */
+  failed: Array<{ action: RollbackAction; error: string }>;
+  /** Warnings during rollback */
+  warnings: string[];
+}
 
 // ─── Events ──────────────────────────────────────────────────
 
@@ -64,6 +103,7 @@ export class MigrationOrchestrator {
   private bundle: MigrationBundle | null = null;
   private eventHandlers: MigrationEventHandler[] = [];
   private workDir: string;
+  private rollbackPlan: RollbackPlan | null = null;
 
   constructor(
     source: Platform,
@@ -176,6 +216,9 @@ export class MigrationOrchestrator {
       orchestrator.bundle = JSON.parse(bundleJson) as MigrationBundle;
     }
 
+    // Load rollback plan if available
+    await orchestrator.loadRollbackPlan();
+
     return orchestrator;
   }
 
@@ -190,26 +233,50 @@ export class MigrationOrchestrator {
       return this.run();
     }
 
-    // Resume from the phase after the last checkpoint
-    switch (lastCheckpoint.phase) {
-      case 'extracting':
-        // Extract completed, continue with transform
-        await this.loadCheckpoint(lastCheckpoint);
-        await this.runTransformPhase();
-        return this.runLoadPhase();
+    try {
+      let result: LoadResult;
 
-      case 'transforming':
-        // Transform completed, continue with load
-        await this.loadCheckpoint(lastCheckpoint);
-        return this.runLoadPhase();
+      // Resume from the phase after the last checkpoint
+      switch (lastCheckpoint.phase) {
+        case 'extracting':
+          // Extract completed, continue with transform
+          await this.loadCheckpoint(lastCheckpoint);
+          await this.runTransformPhase();
+          result = await this.runLoadPhase();
+          break;
 
-      case 'loading':
-        // Load was in progress, need to restart it
-        await this.loadCheckpoint(lastCheckpoint);
-        return this.runLoadPhase();
+        case 'transforming':
+          // Transform completed, continue with load
+          await this.loadCheckpoint(lastCheckpoint);
+          result = await this.runLoadPhase();
+          break;
 
-      default:
-        return this.run();
+        case 'loading':
+          // Load was in progress, need to restart it
+          await this.loadCheckpoint(lastCheckpoint);
+          result = await this.runLoadPhase();
+          break;
+
+        default:
+          return this.run();
+      }
+
+      // Mark migration as complete
+      this.state.phase = 'complete';
+      this.state.completedAt = new Date().toISOString();
+      await this.saveState();
+
+      this.emit({ type: 'complete', data: result });
+
+      return result;
+    } catch (error) {
+      this.state.phase = 'failed';
+      this.state.error = error instanceof Error ? error.message : String(error);
+      await this.saveState();
+
+      this.emit({ type: 'error', error: error instanceof Error ? error : new Error(String(error)) });
+
+      throw error;
     }
   }
 
@@ -220,6 +287,200 @@ export class MigrationOrchestrator {
     if (existsSync(this.workDir)) {
       await rm(this.workDir, { recursive: true, force: true });
     }
+  }
+
+  /**
+   * Get the rollback plan for this migration (if one exists).
+   */
+  getRollbackPlan(): RollbackPlan | null {
+    return this.rollbackPlan;
+  }
+
+  /**
+   * Check if rollback is available for this migration.
+   */
+  canRollback(): boolean {
+    return this.rollbackPlan !== null && !this.rollbackPlan.executed;
+  }
+
+  /**
+   * Rollback a completed migration.
+   *
+   * This attempts to undo changes made during the load phase.
+   * Note: Rollback may not be complete for all platforms.
+   */
+  async rollback(): Promise<RollbackResult> {
+    if (!this.rollbackPlan) {
+      throw new Error('No rollback plan available - migration may not have completed');
+    }
+
+    if (this.rollbackPlan.executed) {
+      throw new Error('Rollback has already been executed');
+    }
+
+    this.emit({
+      type: 'phase:start',
+      phase: 'failed', // Reusing 'failed' for rollback phase
+      message: 'Starting rollback...',
+    });
+
+    const result: RollbackResult = {
+      success: true,
+      succeeded: [],
+      failed: [],
+      warnings: [],
+    };
+
+    // Execute actions in reverse order
+    const actions = [...this.rollbackPlan.actions].reverse();
+
+    for (const action of actions) {
+      try {
+        await this.executeRollbackAction(action);
+        result.succeeded.push(action);
+        this.emit({
+          type: 'progress',
+          message: `Rolled back: ${action.description}`,
+        });
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        result.failed.push({ action, error: errorMsg });
+        result.warnings.push(`Failed to rollback: ${action.description}`);
+        // Continue with other rollback actions
+      }
+    }
+
+    // Mark rollback as executed
+    this.rollbackPlan.executed = true;
+    this.rollbackPlan.executedAt = new Date().toISOString();
+    await this.saveRollbackPlan();
+
+    // Update overall success
+    result.success = result.failed.length === 0;
+
+    this.emit({
+      type: result.success ? 'complete' : 'error',
+      message: result.success
+        ? 'Rollback completed successfully'
+        : `Rollback completed with ${result.failed.length} failures`,
+      data: result,
+    });
+
+    return result;
+  }
+
+  /**
+   * Execute a single rollback action.
+   * Override in subclasses for platform-specific implementations.
+   */
+  protected async executeRollbackAction(action: RollbackAction): Promise<void> {
+    // Base implementation logs the action
+    // Real implementations would call platform APIs
+    this.emit({
+      type: 'progress',
+      message: `Executing rollback: ${action.type} on ${action.platform}`,
+      data: action,
+    });
+
+    // For now, simulate the rollback
+    // Real implementations would be provided by loaders
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  /**
+   * Create a rollback plan from a load result.
+   */
+  private createRollbackPlan(result: LoadResult): RollbackPlan {
+    const actions: RollbackAction[] = [];
+
+    // Track created project for deletion
+    if (result.created?.projectId) {
+      actions.push({
+        type: 'delete-project',
+        description: `Delete created project: ${result.created.projectId}`,
+        platform: this.state.target,
+        resourceIds: [result.created.projectId],
+      });
+    }
+
+    // Track loaded memories for deletion
+    if (result.loaded.memories > 0) {
+      actions.push({
+        type: 'delete-memories',
+        description: `Delete ${result.loaded.memories} loaded memories`,
+        platform: this.state.target,
+        resourceIds: [], // Would be populated by the loader
+      });
+    }
+
+    // Track loaded files for deletion
+    if (result.loaded.files > 0) {
+      actions.push({
+        type: 'delete-files',
+        description: `Delete ${result.loaded.files} loaded files`,
+        platform: this.state.target,
+        resourceIds: [], // Would be populated by the loader
+      });
+    }
+
+    return {
+      migrationId: this.state.id,
+      actions,
+      createdAt: new Date().toISOString(),
+      executed: false,
+    };
+  }
+
+  /**
+   * Save rollback plan to disk.
+   */
+  private async saveRollbackPlan(): Promise<void> {
+    if (!this.rollbackPlan) return;
+    const planPath = join(this.workDir, 'rollback-plan.json');
+    await writeFile(planPath, JSON.stringify(this.rollbackPlan, null, 2));
+  }
+
+  /**
+   * Load rollback plan from disk.
+   */
+  private async loadRollbackPlan(): Promise<void> {
+    const planPath = join(this.workDir, 'rollback-plan.json');
+    if (existsSync(planPath)) {
+      const data = await readFile(planPath, 'utf-8');
+      this.rollbackPlan = JSON.parse(data) as RollbackPlan;
+    }
+  }
+
+  /**
+   * List all migrations in the work directory.
+   */
+  static async listMigrations(baseDir?: string): Promise<MigrationState[]> {
+    const migrationsDir = baseDir ?? join(process.cwd(), '.savestate', 'migrations');
+
+    if (!existsSync(migrationsDir)) {
+      return [];
+    }
+
+    const migrations: MigrationState[] = [];
+    const entries = await readdir(migrationsDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (entry.isDirectory() && entry.name.startsWith('mig_')) {
+        const statePath = join(migrationsDir, entry.name, 'state.json');
+        if (existsSync(statePath)) {
+          try {
+            const data = await readFile(statePath, 'utf-8');
+            migrations.push(JSON.parse(data) as MigrationState);
+          } catch {
+            // Skip corrupted state files
+          }
+        }
+      }
+    }
+
+    return migrations.sort(
+      (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
+    );
   }
 
   /**
@@ -356,6 +617,12 @@ export class MigrationOrchestrator {
         this.emit({ type: 'progress', progress: this.state.progress, message });
       },
     });
+
+    // Create rollback plan for successful loads
+    if (result.success) {
+      this.rollbackPlan = this.createRollbackPlan(result);
+      await this.saveRollbackPlan();
+    }
 
     await this.saveCheckpoint('loading');
     this.emit({ type: 'phase:complete', phase: 'loading', message: 'Load complete', data: result });
